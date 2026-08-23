@@ -252,7 +252,7 @@
                         <span class="text-xs font-bold text-slate-300">構図パターン (全20種類)</span>
                         <span class="text-[10px] text-slate-400">#1: 均等グリッド / #2-20: 人気レイアウト</span>
                     </div>
-                    <div id="layout-grid" class="grid grid-cols-2 gap-2.5">
+                    <div id="layout-grid" class="flex overflow-x-auto gap-2.5 pb-2 pt-1 scrollbar-thin">
                         <!-- Dynamic layout preview cards -->
                     </div>
                 </div>
@@ -610,7 +610,7 @@
         function renderLayoutThumbnails() {
             layoutGrid.innerHTML = '';
             if (state.images.length < 2) {
-                layoutGrid.innerHTML = '<p class="text-xs text-slate-500 col-span-2 text-center py-4">画像を2枚以上読み込むと構図が表示されます。</p>';
+                layoutGrid.innerHTML = '<p class="text-xs text-slate-500 w-full text-center py-4">画像を2枚以上読み込むと構図が表示されます。</p>';
                 return;
             }
 
@@ -618,7 +618,7 @@
 
             state.currentLayouts.forEach((layout, idx) => {
                 const card = document.createElement('div');
-                card.className = `p-2 rounded-xl border cursor-pointer transition flex flex-col items-center bg-slate-900 ${
+                card.className = `p-2 rounded-xl border cursor-pointer transition flex flex-col items-center bg-slate-900 shrink-0 w-28 md:w-32 ${
                     idx === state.selectedLayoutIdx ? 'border-blue-500 bg-blue-600/10' : 'border-slate-800 hover:border-slate-700'
                 }`;
 
@@ -739,7 +739,51 @@
             let lastTapTime = 0;
             let longPressTimer = null;
 
+            // Touch Pinch-to-zoom state variables
+            let initialPinchDist = 0;
+            let initialPinchScale = 1;
+            let isPinching = false;
+
             const imgData = state.images[idx];
+
+            // Touch events for Multi-touch Pinch-to-Zoom
+            slot.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    isPinching = true;
+                    isPanning = false;
+                    clearTimeout(longPressTimer);
+                    
+                    const t1 = e.touches[0];
+                    const t2 = e.touches[1];
+                    initialPinchDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+                    initialPinchScale = imgData.scale || 1;
+                }
+            }, { passive: true });
+
+            slot.addEventListener('touchmove', (e) => {
+                if (isPinching && e.touches.length === 2) {
+                    e.preventDefault();
+                    const t1 = e.touches[0];
+                    const t2 = e.touches[1];
+                    const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
+                    if (initialPinchDist > 0) {
+                        const zoomRatio = currentDist / initialPinchDist;
+                        imgData.scale = Math.min(Math.max(1, initialPinchScale * zoomRatio), 4);
+                        
+                        const img = slot.querySelector('img');
+                        if (img) {
+                            img.style.transform = `translate(${imgData.x}px, ${imgData.y}px) scale(${imgData.scale})`;
+                        }
+                    }
+                }
+            }, { passive: false });
+
+            slot.addEventListener('touchend', (e) => {
+                if (e.touches.length < 2) {
+                    isPinching = false;
+                }
+            });
 
             // Double click / Double tap to reset position
             slot.addEventListener('dblclick', (e) => {
