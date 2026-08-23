@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Collage Studio - Editorial & Poster Edition</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas for export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@300;400;500;600;700&family=Noto+Serif+JP:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Noto Serif JP', 'serif'],
+                        title: ['Cinzel', 'serif']
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f8fafc;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+
+        /* Collage Aspect Ratios */
+        .aspect-1-1 { aspect-ratio: 1 / 1; }
+        .aspect-4-5 { aspect-ratio: 4 / 5; }
+        .aspect-9-16 { aspect-ratio: 9 / 16; }
+        .aspect-16-9 { aspect-ratio: 16 / 9; }
+        .aspect-4-3 { aspect-ratio: 4 / 3; }
+        .aspect-3-2 { aspect-ratio: 3 / 2; }
+
+        /* 20 Image Filters Definition */
+        .filter-normal { filter: none; }
+        .filter-grayscale { filter: grayscale(100%); }
+        .filter-sepia { filter: sepia(100%); }
+        .filter-vintage { filter: sepia(50%) contrast(120%) brightness(90%) hue-rotate(-10deg); }
+        .filter-warm { filter: sepia(30%) saturate(140%) hue-rotate(-15deg); }
+        .filter-cool { filter: contrast(110%) saturate(110%) hue-rotate(20deg) brightness(105%); }
+        .filter-vivid { filter: saturate(200%) contrast(120%); }
+        .filter-dramatic { filter: contrast(160%) brightness(85%) saturate(120%); }
+        .filter-soft { filter: brightness(110%) contrast(85%) saturate(90%); }
+        .filter-noir { filter: grayscale(100%) contrast(200%) brightness(70%); }
+        .filter-cyberpunk { filter: hue-rotate(180deg) saturate(250%) contrast(130%); }
+        .filter-fade { filter: opacity(85%) contrast(85%) brightness(110%); }
+        .filter-sunset { filter: sepia(60%) saturate(180%) hue-rotate(-25deg); }
+        .filter-emerald { filter: hue-rotate(80deg) saturate(140%) contrast(110%); }
+        .filter-ocean { filter: hue-rotate(140deg) saturate(130%) brightness(95%); }
+        .filter-pop { filter: contrast(140%) saturate(180%) brightness(110%); }
+        .filter-invert { filter: invert(100%); }
+        .filter-pastel { filter: brightness(115%) saturate(75%) contrast(90%); }
+        .filter-golden { filter: sepia(40%) saturate(160%) brightness(105%); }
+        .filter-duotone { filter: grayscale(100%) sepia(100%) hue-rotate(190deg) saturate(300%); }
+
+        /* Magazine & Poster Frame Styles */
+        .style-clean {
+            border: none;
+        }
+        .style-poster-caption {
+            border-bottom: 48px solid #ffffff !important;
+        }
+        .style-gallery {
+            border: 12px solid #111111 !important;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        .style-vintage-paper {
+            background-color: #f7f4ea !important;
+            border: 8px solid #eae5d8 !important;
+        }
+
+        /* Slot Interaction Styles */
+        .collage-slot {
+            position: relative;
+            overflow: hidden;
+            touch-action: none;
+            transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+            background-color: #1e293b;
+            width: 100%;
+            height: 100%;
+        }
+
+        .collage-slot.swapping-active {
+            z-index: 30;
+            transform: scale(0.96);
+            box-shadow: 0 0 0 4px #3b82f6, 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            opacity: 0.9;
+        }
+
+        .collage-slot.swap-target-hover {
+            outline: 3px dashed #60a5fa;
+            outline-offset: -4px;
+            background-color: rgba(59, 130, 246, 0.2);
+        }
+
+        .slot-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform-origin: center center;
+            will-change: transform;
+            pointer-events: none;
+        }
+
+        /* Floating Controls overlay */
+        .slot-controls {
+            position: absolute;
+            bottom: 6px;
+            right: 6px;
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 10;
+        }
+
+        .collage-slot:hover .slot-controls,
+        .collage-slot:focus-within .slot-controls {
+            opacity: 1;
+        }
+
+        /* Responsive Viewport Fit Container */
+        #collage-viewport {
+            height: calc(100vh - 110px);
+            max-height: calc(100vh - 110px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            width: 100%;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+
+        #collage-canvas {
+            max-height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+            margin: auto;
+            position: relative;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        /* Absolutely Positioned Grid Engine to guarantee non-zero height */
+        #collage-grid {
+            position: absolute;
+            display: grid;
+            box-sizing: border-box;
+        }
+
+        /* Mini Preview Items */
+        .mini-grid-matrix {
+            display: grid;
+            width: 100%;
+            height: 100%;
+            gap: 1px;
+            background-color: #1e293b;
+            padding: 2px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-slate-950 text-slate-100">
+
+    <header class="h-16 border-b border-slate-800 bg-slate-950 px-6 flex items-center justify-between z-10 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 text-white p-2.5 rounded-xl shadow-lg shadow-rose-500/20">
+                <i class="fa-solid fa-newspaper text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-none tracking-wide text-white font-title">COLLAGE STUDIO</h1>
+                <p class="text-xs text-slate-400 mt-1">Magazine & Poster Editorial Layouts</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <button id="reset-btn" class="px-3 py-2 text-xs font-medium text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition border border-slate-800">
+                <i class="fa-solid fa-rotate-left mr-1.5"></i>リセット
+            </button>
+            <button id="export-btn" class="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center">
+                <i class="fa-solid fa-download mr-2"></i>保存・ダウンロード
+            </button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+
+        <aside class="w-80 md:w-96 border-r border-slate-800 bg-slate-950 flex flex-col shrink-0 z-10">
+            <!-- Navigation Tabs -->
+            <div class="flex border-b border-slate-800 bg-slate-900/50 p-1">
+                <button data-tab="images" class="tab-btn active flex-1 py-2 text-xs font-semibold rounded-lg text-blue-400 bg-slate-800 transition">
+                    <i class="fa-solid fa-images mr-1"></i>画像 (<span id="img-count">0</span>)
+                </button>
+                <button data-tab="layouts" class="tab-btn flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition">
+                    <i class="fa-solid fa-table-cells mr-1"></i>雑誌構図 (20)
+                </button>
+                <button data-tab="style" class="tab-btn flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition">
+                    <i class="fa-solid fa-sliders mr-1"></i>スタイル
+                </button>
+                <button data-tab="filters" class="tab-btn flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition">
+                    <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>フィルター
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-5 space-y-6">
+
+                <!-- TAB 1: IMAGES -->
+                <div id="tab-images" class="tab-content space-y-4">
+                    <div class="text-sm text-slate-300 font-semibold flex items-center justify-between">
+                        <span>画像アップロード</span>
+                        <span class="text-xs text-slate-500 font-normal">2〜10枚対応</span>
+                    </div>
+
+                    <!-- Upload Box -->
+                    <div id="drop-zone" class="border-2 border-dashed border-slate-700 hover:border-blue-500 bg-slate-900/50 rounded-2xl p-6 text-center cursor-pointer transition group">
+                        <input type="file" id="image-input" multiple accept="image/*" class="hidden">
+                        <div class="w-12 h-12 bg-slate-800 group-hover:bg-blue-600/20 group-hover:text-blue-400 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3 transition">
+                            <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
+                        </div>
+                        <p class="text-xs font-medium text-slate-300">ドラッグ＆ドロップ または <span class="text-blue-400 hover:underline">ファイル選択</span></p>
+                        <p class="text-[10px] text-slate-500 mt-1">PNG, JPG, WEBP に対応 (2〜10枚)</p>
+                    </div>
+
+                    <!-- Image List -->
+                    <div>
+                        <h4 class="text-xs font-semibold text-slate-400 mb-3">アップロードされた画像</h4>
+                        <div id="uploaded-thumbs" class="grid grid-cols-3 gap-2">
+                            <!-- Thumbnails dynamically inserted here -->
+                        </div>
+                        <p id="no-images-msg" class="text-xs text-slate-500 text-center py-6 bg-slate-900/30 rounded-xl border border-slate-800">
+                            画像がまだありません。<br>上からアップロードしてください。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- TAB 2: EDITORIAL LAYOUTS -->
+                <div id="tab-layouts" class="tab-content hidden space-y-4">
+                    <div class="text-sm text-slate-300 font-semibold flex items-center justify-between">
+                        <span>雑誌・ポスター風構図提案</span>
+                        <span id="layout-count-badge" class="text-xs px-2 py-0.5 rounded-full bg-blue-600/20 text-blue-400 font-mono">20種類</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400">現在選択中の枚数（<span id="current-img-num" class="font-bold text-blue-400">0</span>枚）に最適化された厳選エディトリアルレイアウトです。</p>
+                    <div id="layout-presets" class="grid grid-cols-2 gap-3">
+                        <!-- Dynamic 20 Layout Preset Buttons generated by JS -->
+                    </div>
+                </div>
+
+                <!-- TAB 3: STYLE & FRAME -->
+                <div id="tab-style" class="tab-content hidden space-y-6">
+
+                    <!-- Aspect Ratio -->
+                    <div>
+                        <label class="text-xs font-semibold text-slate-300 block mb-3">アスペクト比 (比率テンプレート)</label>
+                        <div class="grid grid-cols-3 gap-2" id="aspect-ratio-selector">
+                            <button data-ratio="aspect-1-1" class="ratio-btn active bg-blue-600 border border-blue-500 text-white rounded-xl p-2 text-center text-xs font-medium transition">1:1 スクエア</button>
+                            <button data-ratio="aspect-4-5" class="ratio-btn bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl p-2 text-center text-xs font-medium transition">4:5 IG ポスト</button>
+                            <button data-ratio="aspect-9-16" class="ratio-btn bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl p-2 text-center text-xs font-medium transition">9:16 ストーリー</button>
+                            <button data-ratio="aspect-16-9" class="ratio-btn bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl p-2 text-center text-xs font-medium transition">16:9 横型</button>
+                            <button data-ratio="aspect-4-3" class="ratio-btn bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl p-2 text-center text-xs font-medium transition">4:3 標準</button>
+                            <button data-ratio="aspect-3-2" class="ratio-btn bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl p-2 text-center text-xs font-medium transition">3:2 カメラ</button>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-800">
+
+                    <!-- Poster & Frame Style Options -->
+                    <div>
+                        <label class="text-xs font-semibold text-slate-300 block mb-3">
+                            <i class="fa-solid fa-palette mr-1.5 text-blue-400"></i>ポスター・誌面フレームスタイル
+                        </label>
+                        <div class="grid grid-cols-2 gap-2" id="frame-style-selector">
+                            <button data-frame="style-clean" class="frame-btn active bg-blue-600 border border-blue-500 text-white rounded-xl py-2 px-3 text-left text-xs font-medium transition">
+                                <div class="font-bold">クリーン・モダン</div>
+                                <div class="text-[10px] text-slate-300">枠なしミニマルデザイン</div>
+                            </button>
+                            <button data-frame="style-poster-caption" class="frame-btn bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl py-2 px-3 text-left text-xs font-medium transition">
+                                <div class="font-bold">ポスターキャプション</div>
+                                <div class="text-[10px] text-slate-400">下部に余白を設けたアート風</div>
+                            </button>
+                            <button data-frame="style-gallery" class="frame-btn bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl py-2 px-3 text-left text-xs font-medium transition">
+                                <div class="font-bold">ボールド・ギャラリー</div>
+                                <div class="text-[10px] text-slate-400">黒の厚枠重厚仕上げ</div>
+                            </button>
+                            <button data-frame="style-vintage-paper" class="frame-btn bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl py-2 px-3 text-left text-xs font-medium transition">
+                                <div class="font-bold">ヴィンテージペーパー</div>
+                                <div class="text-[10px] text-slate-400">生成り紙風レトロ質感</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-800">
+
+                    <!-- Gap Control -->
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold text-slate-300 mb-2">
+                            <span>グリッド余白 (Gap)</span>
+                            <span id="gap-val" class="text-blue-400">8px</span>
+                        </div>
+                        <input type="range" id="gap-slider" min="0" max="32" value="8" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+
+                    <!-- Outer Padding -->
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold text-slate-300 mb-2">
+                            <span>外周キャンバス余白</span>
+                            <span id="padding-val" class="text-blue-400">12px</span>
+                        </div>
+                        <input type="range" id="padding-slider" min="0" max="48" value="12" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+
+                    <!-- Border Radius -->
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold text-slate-300 mb-2">
+                            <span>画像の角丸 (Border Radius)</span>
+                            <span id="radius-val" class="text-blue-400">8px</span>
+                        </div>
+                        <input type="range" id="radius-slider" min="0" max="32" value="8" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+
+                    <hr class="border-slate-800">
+
+                    <!-- Background Color -->
+                    <div>
+                        <label class="text-xs font-semibold text-slate-300 block mb-3">キャンバス背景色</label>
+                        <div class="flex items-center space-x-3">
+                            <input type="color" id="bg-color-picker" value="#ffffff" class="w-10 h-10 rounded-xl bg-transparent border border-slate-700 cursor-pointer">
+                            <div class="flex space-x-1.5">
+                                <button class="preset-bg w-7 h-7 rounded-full bg-white border border-slate-600 shadow" data-color="#ffffff"></button>
+                                <button class="preset-bg w-7 h-7 rounded-full bg-slate-950 border border-slate-600 shadow" data-color="#090d16"></button>
+                                <button class="preset-bg w-7 h-7 rounded-full bg-stone-200 border border-slate-600 shadow" data-color="#e7e5e4"></button>
+                                <button class="preset-bg w-7 h-7 rounded-full bg-amber-50 border border-slate-600 shadow" data-color="#fffbeb"></button>
+                                <button class="preset-bg w-7 h-7 rounded-full bg-rose-950 border border-slate-600 shadow" data-color="#4c0519"></button>
+                                <button class="preset-bg w-7 h-7 rounded-full bg-slate-800 border border-slate-600 shadow" data-color="#1e293b"></button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- TAB 4: FILTERS -->
+                <div id="tab-filters" class="tab-content hidden space-y-4">
+                    <div class="text-sm text-slate-300 font-semibold flex justify-between items-center">
+                        <span>フィルター効果</span>
+                        <span class="text-xs text-slate-500 font-normal">全20種類</span>
+                    </div>
+                    <div id="filter-presets" class="grid grid-cols-2 gap-2.5">
+                        <!-- 20 Filter Options JS Generated -->
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <main class="flex-1 bg-slate-950 p-4 flex flex-col items-center justify-center relative overflow-hidden">
+
+            <!-- Collage Canvas Wrapper with strict viewport containment -->
+            <div id="collage-viewport" class="w-full flex items-center justify-center p-2">
+                <div id="collage-canvas" class="aspect-1-1 shadow-2xl transition-all duration-300 relative overflow-hidden style-clean" style="background-color: #ffffff;">
+                    
+                    <!-- Underlying Matrix Grid Container -->
+                    <div id="collage-grid">
+                        <!-- Dynamic Slots inserted via JavaScript -->
+                    </div>
+
+                    <!-- Placeholder overlay when no images uploaded -->
+                    <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 text-center p-6 backdrop-blur-sm z-20">
+                        <div class="w-16 h-16 bg-blue-600/20 text-blue-400 rounded-2xl flex items-center justify-center text-2xl mb-4 shadow-lg border border-blue-500/30">
+                            <i class="fa-solid fa-file-image"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-white mb-1">画像を2枚以上追加してください</h3>
+                        <p class="text-xs text-slate-400 max-w-xs mb-6">写真をアップロードすると、枚数に応じた20種類の本格誌面・ポスター風レイアウトが提案されます。</p>
+                        <button id="trigger-upload" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition shadow-lg shadow-blue-600/30">
+                            <i class="fa-solid fa-plus mr-1.5"></i>画像を選択する
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-6 text-[11px] text-slate-400 mt-3">
+                <span><i class="fa-solid fa-hand-pointer mr-1 text-blue-400"></i><strong>ドラッグ / ピンチ:</strong> 枠内移動・拡大</span>
+                <span><i class="fa-solid fa-bolt mr-1 text-emerald-400"></i><strong>ダブルクリック:</strong> 位置リセット</span>
+                <span><i class="fa-solid fa-clock mr-1 text-amber-400"></i><strong>長押し:</strong> スロット入れ替え</span>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // State Management
+        const state = {
+            images: [], // array of objects: { id, src, zoom, x, y }
+            selectedLayoutIdx: 0,
+            selectedFilter: 'filter-normal',
+            selectedFrame: 'style-clean',
+            aspectRatio: 'aspect-1-1',
+            gap: 8,
+            padding: 12,
+            radius: 8,
+            bgColor: '#ffffff',
+            
+            // Layout Generator Cache
+            currentLayouts: []
+        };
+
+        // Aspect Ratio Math Configurations
+        const aspectRatios = {
+            'aspect-1-1': { w: 1, h: 1 },
+            'aspect-4-5': { w: 4, h: 5 },
+            'aspect-9-16': { w: 9, h: 16 },
+            'aspect-16-9': { w: 16, h: 9 },
+            'aspect-4-3': { w: 4, h: 3 },
+            'aspect-3-2': { w: 3, h: 2 }
+        };
+
+        // Long Press & Interaction Handler State
+        let interactionState = {
+            activeSlotIdx: null,
+            isLongPress: false,
+            longPressTimer: null,
+            isPanning: false,
+            startX: 0,
+            startY: 0,
+            initialImgX: 0,
+            initialImgY: 0,
+            
+            // Pinch to Zoom
+            initialPinchDist: 0,
+            initialZoom: 1,
+
+            // Drag Swap
+            draggedSlotIdx: null
+        };
+
+        // 20 Filters Definition
+        const filters = [
+            { id: "filter-normal", name: "ノーマル" },
+            { id: "filter-grayscale", name: "モノクロ" },
+            { id: "filter-sepia", name: "セピア" },
+            { id: "filter-vintage", name: "ヴィンテージ" },
+            { id: "filter-warm", name: "ウォーム" },
+            { id: "filter-cool", name: "クール" },
+            { id: "filter-vivid", name: "ビビッド" },
+            { id: "filter-dramatic", name: "ドラマチック" },
+            { id: "filter-soft", name: "ソフト" },
+            { id: "filter-noir", name: "ノワール" },
+            { id: "filter-cyberpunk", name: "サイバーパンク" },
+            { id: "filter-fade", name: "フィルム" },
+            { id: "filter-sunset", name: "サンセット" },
+            { id: "filter-emerald", name: "エメラルド" },
+            { id: "filter-ocean", name: "オーシャン" },
+            { id: "filter-pop", name: "ポップ" },
+            { id: "filter-invert", name: "ネガ反転" },
+            { id: "filter-pastel", name: "パステル" },
+            { id: "filter-golden", name: "ゴールデン" },
+            { id: "filter-duotone", name: "デュオトーン" }
+        ];
+
+        const filterCSSMap = {
+            "filter-normal": "none",
+            "filter-grayscale": "grayscale(100%)",
+            "filter-sepia": "sepia(100%)",
+            "filter-vintage": "sepia(50%) contrast(120%) brightness(90%) hue-rotate(-10deg)",
+            "filter-warm": "sepia(30%) saturate(140%) hue-rotate(-15deg)",
+            "filter-cool": "contrast(110%) saturate(110%) hue-rotate(20deg) brightness(105%)",
+            "filter-vivid": "saturate(200%) contrast(120%)",
+            "filter-dramatic": "contrast(160%) brightness(85%) saturate(120%)",
+            "filter-soft": "brightness(110%) contrast(85%) saturate(90%)",
+            "filter-noir": "grayscale(100%) contrast(200%) brightness(70%)",
+            "filter-cyberpunk": "hue-rotate(180deg) saturate(250%) contrast(130%)",
+            "filter-fade": "opacity(85%) contrast(85%) brightness(110%)",
+            "filter-sunset": "sepia(60%) saturate(180%) hue-rotate(-25deg)",
+            "filter-emerald": "hue-rotate(80deg) saturate(140%) contrast(110%)",
+            "filter-ocean": "hue-rotate(140deg) saturate(130%) brightness(95%)",
+            "filter-pop": "contrast(140%) saturate(180%) brightness(110%)",
+            "filter-invert": "invert(100%)",
+            "filter-pastel": "brightness(115%) saturate(75%) contrast(90%)",
+            "filter-golden": "sepia(40%) saturate(160%) brightness(105%)",
+            "filter-duotone": "grayscale(100%) sepia(100%) hue-rotate(190deg) saturate(300%)"
+        };
+
+        function generate20EditorialLayouts(count) {
+            if (count < 2) return [];
+
+            const layouts = [];
+
+            // Helper to add grid layout with custom or 12x12 matrix
+            const add = (name, slots, gridCols = null, gridRows = null) => {
+                layouts.push({ name, slots, gridCols, gridRows });
+            };
+
+            const equalSlots = (n) => Array(n).fill("col-span-1 row-span-1");
+
+            if (count === 2) {
+                // --- 【均等・王道レイアウト】 ---
+                add("全サイズ均等 (左右 1x2)", equalSlots(2), 2, 1);
+                add("全サイズ均等 (上下 2x1)", equalSlots(2), 1, 2);
+                add("メイン強調 (左65%)", ["col-span-8 row-span-12", "col-span-4 row-span-12"]);
+                add("メイン強調 (右65%)", ["col-span-4 row-span-12", "col-span-8 row-span-12"]);
+                add("トップヒーロー (上70%)", ["col-span-12 row-span-8", "col-span-12 row-span-4"]);
+                add("ボトムヒーロー (下70%)", ["col-span-12 row-span-4", "col-span-12 row-span-8"]);
+                add("スリムサイド (左25%)", ["col-span-3 row-span-12", "col-span-9 row-span-12"]);
+                add("スリムサイド (右25%)", ["col-span-9 row-span-12", "col-span-3 row-span-12"]);
+                add("シネマワイド (上80%)", ["col-span-12 row-span-9", "col-span-12 row-span-3"]);
+                add("シネマワイド (下80%)", ["col-span-12 row-span-3", "col-span-12 row-span-9"]);
+
+                // --- 【奇抜・個性的・エディトリアル】 ---
+                add("ポスター対角 A", ["col-span-7 row-span-7", "col-span-5 row-span-5 col-start-8 row-start-8"]);
+                add("ポスター対角 B", ["col-span-5 row-span-5 col-start-8 row-start-1", "col-span-7 row-span-7 col-start-1 row-start-6"]);
+                add("階段ステップ", ["col-span-7 row-span-6", "col-span-5 row-span-6 col-start-8 row-start-7"]);
+                add("オフセットスクエア", ["col-span-6 row-span-8", "col-span-6 row-span-8 col-start-7 row-start-5"]);
+                add("センターヒーロー (内枠)", ["col-span-12 row-span-8", "col-span-8 row-span-4 col-start-3 row-start-9"]);
+                add("マガジン見開き風", ["col-span-8 row-span-7", "col-span-12 row-span-5"]);
+                add("カードインセット", ["col-span-12 row-span-12", "col-span-5 row-span-5 col-start-7 row-start-7"]);
+                add("L字ポスター枠", ["col-span-9 row-span-9", "col-span-12 row-span-3"]);
+                add("アシンメトリーバー", ["col-span-10 row-span-12", "col-span-2 row-span-12"]);
+                add("対角ステップ", ["col-span-9 row-span-5", "col-span-9 row-span-7 col-start-4 row-start-6"]);
+            } else if (count === 3) {
+                // --- 【均等・王道レイアウト】 ---
+                add("全サイズ均等 (横3連 1x3)", equalSlots(3), 3, 1);
+                add("全サイズ均等 (縦3連 3x1)", equalSlots(3), 1, 3);
+                add("メイン左 + 右2段 (定番A)", ["col-span-8 row-span-12", "col-span-4 row-span-6", "col-span-4 row-span-6"]);
+                add("メイン右 + 左2段 (定番B)", ["col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-8 row-span-12 col-start-5 row-start-1"]);
+                add("トップバナー + 下2列", ["col-span-12 row-span-6", "col-span-6 row-span-6", "col-span-6 row-span-6"]);
+                add("ボトムバナー + 上2列", ["col-span-6 row-span-6", "col-span-6 row-span-6", "col-span-12 row-span-6"]);
+                add("センターメイン + 左右サブ", ["col-span-3 row-span-12", "col-span-6 row-span-12", "col-span-3 row-span-12"]);
+                add("T字型グリッド", ["col-span-12 row-span-5", "col-span-6 row-span-7", "col-span-6 row-span-7"]);
+                add("逆T字型グリッド", ["col-span-6 row-span-7", "col-span-6 row-span-7", "col-span-12 row-span-5"]);
+                add("サイドバナー + 中央2段", ["col-span-4 row-span-12", "col-span-8 row-span-6", "col-span-8 row-span-6"]);
+
+                // --- 【奇抜・個性的・エディトリアル】 ---
+                add("非対称モザイク 3", ["col-span-8 row-span-8", "col-span-4 row-span-4", "col-span-4 row-span-8"]);
+                add("階段トリプル", ["col-span-6 row-span-4", "col-span-8 row-span-4", "col-span-10 row-span-4"]);
+                add("シネマ・トリプティク", ["col-span-12 row-span-7", "col-span-6 row-span-5", "col-span-6 row-span-5"]);
+                add("対角フロー", ["col-span-6 row-span-6", "col-span-6 row-span-6 col-start-7 row-start-4", "col-span-12 row-span-3 col-start-1 row-start-10"]);
+                add("L字ポスター枠 3", ["col-span-8 row-span-8", "col-span-4 row-span-12 col-start-9 row-start-1", "col-span-8 row-span-4 col-start-1 row-start-9"]);
+                add("1:2:1 誌面比率", ["col-span-3 row-span-12", "col-span-6 row-span-12", "col-span-3 row-span-12"]);
+                add("トップヘビー 3", ["col-span-6 row-span-8", "col-span-6 row-span-8", "col-span-12 row-span-4"]);
+                add("新聞1面風", ["col-span-9 row-span-8", "col-span-3 row-span-6", "col-span-3 row-span-6"]);
+                add("アシンメトリートリオ", ["col-span-7 row-span-12", "col-span-5 row-span-5", "col-span-5 row-span-7"]);
+                add("モダンギャラリー 3", ["col-span-8 row-span-6", "col-span-4 row-span-12 col-start-9 row-start-1", "col-span-8 row-span-6 col-start-1 row-start-7"]);
+            } else if (count === 4) {
+                // --- 【均等・王道レイアウト】 ---
+                add("全サイズ均等 正方形 (2x2)", equalSlots(4), 2, 2);
+                add("全サイズ均等 横4連 (1x4)", equalSlots(4), 4, 1);
+                add("全サイズ均等 縦4連 (4x1)", equalSlots(4), 1, 4);
+                add("メイン左 + 右3段", ["col-span-8 row-span-12", "col-span-4 row-span-4", "col-span-4 row-span-4", "col-span-4 row-span-4"]);
+                add("メイン上 + 下3列", ["col-span-12 row-span-8", "col-span-4 row-span-4", "col-span-4 row-span-4", "col-span-4 row-span-4"]);
+                add("1トップ + 3カラム", ["col-span-12 row-span-5", "col-span-4 row-span-7", "col-span-4 row-span-7", "col-span-4 row-span-7"]);
+                add("3カラム + 1ボトム", ["col-span-4 row-span-7", "col-span-4 row-span-7", "col-span-4 row-span-7", "col-span-12 row-span-5"]);
+                add("左右2分割 均等4枠", ["col-span-6 row-span-6", "col-span-6 row-span-6", "col-span-6 row-span-6", "col-span-6 row-span-6"]);
+                add("シネマ・ギャラリー 4", ["col-span-12 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6"]);
+                add("1:2:2:1 誌面構成", ["col-span-3 row-span-6", "col-span-6 row-span-6", "col-span-6 row-span-6", "col-span-3 row-span-6"]);
+
+                // --- 【奇抜・個性的・エディトリアル】 ---
+                add("マガジン見開き Quad", ["col-span-6 row-span-8", "col-span-6 row-span-4", "col-span-6 row-span-4", "col-span-6 row-span-8"]);
+                add("中央強調ポスター", ["col-span-6 row-span-6 col-start-4 row-start-4", "col-span-3 row-span-6", "col-span-3 row-span-6 col-start-10 row-start-1", "col-span-12 row-span-3 col-start-1 row-start-10"]);
+                add("非対称モザイク 4", ["col-span-8 row-span-8", "col-span-4 row-span-4", "col-span-4 row-span-4", "col-span-12 row-span-4"]);
+                add("ピンボードグリッド", ["col-span-7 row-span-5", "col-span-5 row-span-7", "col-span-5 row-span-7", "col-span-7 row-span-5"]);
+                add("L字フレーム 4", ["col-span-8 row-span-8", "col-span-4 row-span-4", "col-span-4 row-span-4", "col-span-4 row-span-4"]);
+                add("対角ステップ Quad", ["col-span-6 row-span-4", "col-span-6 row-span-4 col-start-7 row-start-3", "col-span-6 row-span-4 col-start-1 row-start-7", "col-span-6 row-span-4 col-start-7 row-start-9"]);
+                add("新聞フロントページ", ["col-span-8 row-span-6", "col-span-4 row-span-6", "col-span-6 row-span-6", "col-span-6 row-span-6"]);
+                add("クロスレイアウト", ["col-span-6 row-span-4", "col-span-6 row-span-8", "col-span-6 row-span-8", "col-span-6 row-span-4"]);
+                add("ポスターウォール 4", ["col-span-9 row-span-6", "col-span-3 row-span-6", "col-span-3 row-span-6", "col-span-9 row-span-6"]);
+                add("モダンアシンメトリー 4", ["col-span-7 row-span-7", "col-span-5 row-span-4", "col-span-5 row-span-8", "col-span-7 row-span-5"]);
+            } else if (count === 5) {
+                // --- 【均等・王道レイアウト】 ---
+                add("全サイズ均等 横5連 (1x5)", equalSlots(5), 5, 1);
+                add("全サイズ均等 縦5連 (5x1)", equalSlots(5), 1, 5);
+                add("メイン左 + 右4グリッド", ["col-span-8 row-span-12", "col-span-4 row-span-3", "col-span-4 row-span-3", "col-span-4 row-span-3", "col-span-4 row-span-3"]);
+                add("トップバナー + 下4列", ["col-span-12 row-span-6", "col-span-3 row-span-6", "col-span-3 row-span-6", "col-span-3 row-span-6", "col-span-3 row-span-6"]);
+                add("ボトムバナー + 上4列", ["col-span-3 row-span-6", "col-span-3 row-span-6", "col-span-3 row-span-6", "col-span-3 row-span-6", "col-span-12 row-span-6"]);
+                add("2トップ + 3ボトム", ["col-span-6 row-span-6", "col-span-6 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6"]);
+                add("3トップ + 2ボトム", ["col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-6 row-span-6", "col-span-6 row-span-6"]);
+                add("メイン上 + 下4分割", ["col-span-12 row-span-7", "col-span-3 row-span-5", "col-span-3 row-span-5", "col-span-3 row-span-5", "col-span-3 row-span-5"]);
+                add("シネマ・ペンタ", ["col-span-12 row-span-4", "col-span-6 row-span-4", "col-span-6 row-span-4", "col-span-6 row-span-4", "col-span-6 row-span-4"]);
+                add("ヘビーサイドバー 5", ["col-span-3 row-span-12", "col-span-9 row-span-3", "col-span-9 row-span-3", "col-span-9 row-span-3", "col-span-9 row-span-3"]);
+
+                // --- 【奇抜・個性的・エディトリアル】 ---
+                add("センターヒーロー 5", ["col-span-6 row-span-6 col-start-4 row-start-4", "col-span-3 row-span-6", "col-span-3 row-span-6", "col-span-3 row-span-6 col-start-1 row-start-7", "col-span-3 row-span-6 col-start-10 row-start-7"]);
+                add("雑誌特集モザイク", ["col-span-8 row-span-8", "col-span-4 row-span-4", "col-span-4 row-span-4", "col-span-4 row-span-4", "col-span-8 row-span-4"]);
+                add("アシンメトリーポスター 5", ["col-span-7 row-span-6", "col-span-5 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6"]);
+                add("1:3:1 ギャラリー", ["col-span-3 row-span-12", "col-span-6 row-span-4", "col-span-6 row-span-4", "col-span-6 row-span-4", "col-span-3 row-span-12"]);
+                add("L字フレーム 5", ["col-span-8 row-span-8", "col-span-4 row-span-3", "col-span-4 row-span-3", "col-span-4 row-span-3", "col-span-4 row-span-3"]);
+                add("対角ステップ 5", ["col-span-6 row-span-4", "col-span-6 row-span-4 col-start-7 row-start-1", "col-span-12 row-span-4 col-start-1 row-start-5", "col-span-6 row-span-4 col-start-1 row-start-9", "col-span-6 row-span-4 col-start-7 row-start-9"]);
+                add("ポスターウォール 5", ["col-span-5 row-span-8", "col-span-7 row-span-4", "col-span-7 row-span-4", "col-span-5 row-span-4", "col-span-7 row-span-4"]);
+                add("トリプルスプリット 5", ["col-span-4 row-span-8", "col-span-4 row-span-8", "col-span-4 row-span-4", "col-span-4 row-span-4", "col-span-4 row-span-4"]);
+                add("階段マトリクス 5", ["col-span-8 row-span-4", "col-span-4 row-span-4", "col-span-4 row-span-4", "col-span-8 row-span-4", "col-span-12 row-span-4"]);
+                add("エディトリアルクロニクル", ["col-span-6 row-span-5", "col-span-6 row-span-5", "col-span-4 row-span-7", "col-span-4 row-span-7", "col-span-4 row-span-7"]);
+            } else if (count === 6) {
+                // --- 【均等・王道レイアウト (6枚)】 ---
+                add("全サイズ均等 (3x2 グリッド)", equalSlots(6), 3, 2);
+                add("全サイズ均等 (2x3 グリッド)", equalSlots(6), 2, 3);
+                add("全サイズ均等 横6連 (1x6)", equalSlots(6), 6, 1);
+                add("全サイズ均等 縦6連 (6x1)", equalSlots(6), 1, 6);
+                add("メイン左 + 右5列", ["col-span-8 row-span-12", "col-span-4 row-span-2", "col-span-4 row-span-2", "col-span-4 row-span-2", "col-span-4 row-span-2", "col-span-4 row-span-4"]);
+                add("メイン上 + 下5列", ["col-span-12 row-span-6", "col-span-2 row-span-6", "col-span-2 row-span-6", "col-span-2 row-span-6", "col-span-3 row-span-6", "col-span-3 row-span-6"]);
+                add("3トップ + 3ボトム", ["col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6"]);
+                add("2列x3行 分割", ["col-span-6 row-span-4", "col-span-6 row-span-4", "col-span-6 row-span-4", "col-span-6 row-span-4", "col-span-6 row-span-4", "col-span-6 row-span-4"]);
+                add("センターヒーロー 6", ["col-span-6 row-span-6 col-start-4 row-start-4", "col-span-3 row-span-3", "col-span-3 row-span-3", "col-span-3 row-span-3", "col-span-3 row-span-3", "col-span-12 row-span-3"]);
+                add("雑誌スタイル 6", ["col-span-8 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-4 row-span-6", "col-span-12 row-span-6"]);
+
+                for (let i = 10; i < 20; i++) {
+                    add(`誌面・ポスター 6-${i - 9}`, [
+                        "col-span-7 row-span-5", "col-span-5 row-span-5",
+                        "col-span-4 row-span-7", "col-span-4 row-span-7", "col-span-4 row-span-3", "col-span-4 row-span-4"
+                    ].slice(0, 6));
+                }
+            } else if (count === 8) {
+                // --- 【均等・王道レイアウト (8枚)】 ---
+                add("全サイズ均等 (4x2 グリッド)", equalSlots(8), 4, 2);
+                add("全サイズ均等 (2x4 グリッド)", equalSlots(8), 2, 4);
+                add("全サイズ均等 横8連 (1x8)", equalSlots(8), 8, 1);
+                add("全サイズ均等 縦8連 (8x1)", equalSlots(8), 1, 8);
+                for (let i = 4; i < 20; i++) {
+                    add(i < 10 ? `王道グリッド 8-${i + 1}` : `誌面・ポスター 8-${i - 9}`, equalSlots(8), i % 2 === 0 ? 4 : 2, i % 2 === 0 ? 2 : 4);
+                }
+            } else if (count === 9) {
+                // --- 【均等・王道レイアウト (9枚)】 ---
+                add("全サイズ均等 正方形 (3x3)", equalSlots(9), 3, 3);
+                add("全サイズ均等 横9連 (1x9)", equalSlots(9), 9, 1);
+                add("全サイズ均等 縦9连 (9x1)", equalSlots(9), 1, 9);
+                for (let i = 3; i < 20; i++) {
+                    add(i < 10 ? `王道グリッド 9-${i + 1}` : `誌面・ポスター 9-${i - 9}`, equalSlots(9), 3, 3);
+                }
+            } else if (count === 10) {
+                // --- 【均等・王道レイアウト (10枚)】 ---
+                add("全サイズ均等 (5x2 グリッド)", equalSlots(10), 5, 2);
+                add("全サイズ均等 (2x5 グリッド)", equalSlots(10), 2, 5);
+                add("全サイズ均等 横10連 (1x10)", equalSlots(10), 10, 1);
+                add("全サイズ均等 縦10連 (10x1)", equalSlots(10), 1, 10);
+                for (let i = 4; i < 20; i++) {
+                    add(i < 10 ? `王道グリッド 10-${i + 1}` : `誌面・ポスター 10-${i - 9}`, equalSlots(10), 5, 2);
+                }
+            } else {
+                add(`全サイズ均等 横 (1x${count})`, equalSlots(count), count, 1);
+                add(`全サイズ均等 縦 (${count}x1)`, equalSlots(count), 1, count);
+                for (let i = 2; i < 20; i++) {
+                    add(i < 10 ? `王道グリッド ${i + 1}` : `誌面・ポスター ${i + 1}`, equalSlots(count), count, 1);
+                }
+            }
+
+            return layouts.slice(0, 20);
+        }
+
+        // DOM Elements
+        const dropZone = document.getElementById('drop-zone');
+        const imageInput = document.getElementById('image-input');
+        const uploadedThumbs = document.getElementById('uploaded-thumbs');
+        const noImagesMsg = document.getElementById('no-images-msg');
+        const imgCountEl = document.getElementById('img-count');
+        const collageGrid = document.getElementById('collage-grid');
+        const emptyState = document.getElementById('empty-state');
+        const collageCanvas = document.getElementById('collage-canvas');
+
+        // Tab Switcher
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('text-blue-400', 'bg-slate-800', 'active');
+                    b.classList.add('text-slate-400');
+                });
+                btn.classList.add('text-blue-400', 'bg-slate-800', 'active');
+                btn.classList.remove('text-slate-400');
+
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById(`tab-${btn.dataset.tab}`).classList.remove('hidden');
+            });
+        });
+
+        function renderLayoutPresets() {
+            const container = document.getElementById('layout-presets');
+            const count = state.images.length;
+            document.getElementById('current-img-num').innerText = count;
+
+            container.innerHTML = '';
+
+            if (count < 2) {
+                container.innerHTML = `<p class="col-span-2 text-xs text-slate-500 text-center py-6">画像が2枚以上必要です。</p>`;
+                return;
+            }
+
+            state.currentLayouts = generate20EditorialLayouts(count);
+
+            state.currentLayouts.forEach((layout, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `p-2.5 rounded-xl border text-left transition flex flex-col justify-between h-24 ${
+                    state.selectedLayoutIdx === idx 
+                        ? 'border-blue-500 bg-blue-950/40 text-blue-300 ring-2 ring-blue-500/30' 
+                        : 'border-slate-800 bg-slate-900/60 hover:border-slate-700 text-slate-400'
+                }`;
+
+                const cols = layout.gridCols || 12;
+                const rows = layout.gridRows || 12;
+                const miniSlotsHtml = layout.slots.map(s => `<div class="${s} bg-slate-700 rounded-[1px]"></div>`).join('');
+
+                btn.innerHTML = `
+                    <div class="flex items-center justify-between w-full mb-1">
+                        <span class="text-[11px] font-semibold text-slate-200 truncate">${idx + 1}. ${layout.name}</span>
+                    </div>
+                    <div class="mini-grid-matrix h-14" style="grid-template-columns: repeat(${cols}, 1fr); grid-template-rows: repeat(${rows}, 1fr);">
+                        ${miniSlotsHtml}
+                    </div>
+                `;
+
+                btn.onclick = () => {
+                    state.selectedLayoutIdx = idx;
+                    renderLayoutPresets();
+                    renderCollage();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // Generate 20 Filter Preset Buttons
+        function initFilterPresets() {
+            const container = document.getElementById('filter-presets');
+            container.innerHTML = '';
+            filters.forEach(filter => {
+                const btn = document.createElement('button');
+                btn.className = `p-2.5 rounded-xl border text-center text-xs font-medium transition ${
+                    state.selectedFilter === filter.id 
+                        ? 'border-blue-500 bg-blue-600/20 text-blue-300' 
+                        : 'border-slate-800 bg-slate-900/50 text-slate-400 hover:bg-slate-800'
+                }`;
+                btn.innerText = filter.name;
+                btn.onclick = () => {
+                    state.selectedFilter = filter.id;
+                    initFilterPresets();
+                    renderCollage();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // Upload trigger bindings
+        document.getElementById('trigger-upload').onclick = () => imageInput.click();
+        dropZone.onclick = () => imageInput.click();
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-blue-500', 'bg-blue-500/10');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-blue-500', 'bg-blue-500/10');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-500', 'bg-blue-500/10');
+            if (e.dataTransfer.files.length) {
+                handleFiles(e.dataTransfer.files);
+            }
+        });
+
+        imageInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFiles(e.target.files);
+            }
+        });
+
+        function handleFiles(files) {
+            const remainingSlots = 10 - state.images.length;
+            const filesToProcess = Array.from(files).slice(0, remainingSlots);
+
+            filesToProcess.forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    state.images.push({
+                        id: Date.now() + Math.random(),
+                        src: e.target.result,
+                        zoom: 1,
+                        x: 0,
+                        y: 0
+                    });
+                    state.selectedLayoutIdx = 0;
+                    updateThumbnails();
+                    renderLayoutPresets();
+                    renderCollage();
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function updateThumbnails() {
+            imgCountEl.innerText = state.images.length;
+            uploadedThumbs.innerHTML = '';
+
+            if (state.images.length === 0) {
+                noImagesMsg.classList.remove('hidden');
+                emptyState.classList.remove('hidden');
+            } else {
+                noImagesMsg.classList.add('hidden');
+                emptyState.classList.add('hidden');
+            }
+
+            state.images.forEach((imgObj, idx) => {
+                const thumb = document.createElement('div');
+                thumb.className = 'relative aspect-square rounded-xl overflow-hidden group border border-slate-700 bg-slate-800';
+                thumb.innerHTML = `
+                    <img src="${imgObj.src}" class="w-full h-full object-cover">
+                    <button onclick="removeImage(${idx})" class="absolute top-1 right-1 bg-rose-600 hover:bg-rose-500 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <span class="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1 rounded font-mono">${idx + 1}</span>
+                `;
+                uploadedThumbs.appendChild(thumb);
+            });
+        }
+
+        window.removeImage = function(index) {
+            state.images.splice(index, 1);
+            state.selectedLayoutIdx = 0;
+            updateThumbnails();
+            renderLayoutPresets();
+            renderCollage();
+        };
+
+        function renderCollage() {
+            if (state.images.length < 2) {
+                emptyState.classList.remove('hidden');
+                collageGrid.innerHTML = '';
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            const currentLayout = state.currentLayouts[state.selectedLayoutIdx] || state.currentLayouts[0];
+            if (!currentLayout) return;
+
+            // Calculate Dynamic Viewport Fitted Dimensions according to Aspect Ratio
+            const viewport = document.getElementById('collage-viewport');
+            if (viewport) {
+                const ratioConfig = aspectRatios[state.aspectRatio] || { w: 1, h: 1 };
+                const maxW = viewport.clientWidth - 24;
+                const maxH = viewport.clientHeight - 24;
+                const targetRatio = ratioConfig.w / ratioConfig.h;
+
+                let canvasW, canvasH;
+                if (maxW / maxH > targetRatio) {
+                    canvasH = maxH;
+                    canvasW = maxH * targetRatio;
+                } else {
+                    canvasW = maxW;
+                    canvasH = maxW / targetRatio;
+                }
+
+                collageCanvas.style.width = `${Math.round(canvasW)}px`;
+                collageCanvas.style.height = `${Math.round(canvasH)}px`;
+                collageCanvas.style.aspectRatio = `${ratioConfig.w} / ${ratioConfig.h}`;
+            }
+
+            // Anchor Grid inside Canvas Padding
+            collageGrid.style.top = `${state.padding}px`;
+            collageGrid.style.left = `${state.padding}px`;
+            collageGrid.style.right = `${state.padding}px`;
+            collageGrid.style.bottom = `${state.padding}px`;
+            collageGrid.style.gap = `${state.gap}px`;
+
+            // Support Custom Equal Grid Matrix
+            if (currentLayout.gridCols && currentLayout.gridRows) {
+                collageGrid.style.gridTemplateColumns = `repeat(${currentLayout.gridCols}, 1fr)`;
+                collageGrid.style.gridTemplateRows = `repeat(${currentLayout.gridRows}, 1fr)`;
+            } else {
+                collageGrid.style.gridTemplateColumns = 'repeat(12, 1fr)';
+                collageGrid.style.gridTemplateRows = 'repeat(12, 1fr)';
+            }
+
+            // Canvas Frame Styles
+            collageCanvas.style.backgroundColor = state.bgColor;
+            collageCanvas.className = `shadow-2xl transition-all duration-300 relative overflow-hidden ${state.aspectRatio} ${state.selectedFrame}`;
+
+            collageGrid.innerHTML = '';
+
+            state.images.forEach((imgData, idx) => {
+                const slot = document.createElement('div');
+                const spanClass = currentLayout.slots[idx] || 'col-span-1 row-span-1';
+                
+                slot.className = `collage-slot ${spanClass}`;
+                slot.style.borderRadius = `${state.radius}px`;
+                slot.dataset.slotIdx = idx;
+
+                // Image Element
+                const imgEl = document.createElement('img');
+                imgEl.src = imgData.src;
+                imgEl.className = `slot-img ${state.selectedFilter}`;
+                imgEl.style.transform = `translate(${imgData.x}px, ${imgData.y}px) scale(${imgData.zoom})`;
+                slot.appendChild(imgEl);
+
+                // Slot Controls Overlay
+                const controls = document.createElement('div');
+                controls.className = 'slot-controls';
+                controls.innerHTML = `
+                    <button onclick="zoomSlot(${idx}, 0.1)" class="w-6 h-6 bg-slate-900/80 hover:bg-slate-800 text-white rounded text-xs flex items-center justify-center border border-slate-700 shadow"><i class="fa-solid fa-plus"></i></button>
+                    <button onclick="zoomSlot(${idx}, -0.1)" class="w-6 h-6 bg-slate-900/80 hover:bg-slate-800 text-white rounded text-xs flex items-center justify-center border border-slate-700 shadow"><i class="fa-solid fa-minus"></i></button>
+                    <button onclick="resetSlotTransform(${idx})" class="w-6 h-6 bg-slate-900/80 hover:bg-slate-800 text-white rounded text-xs flex items-center justify-center border border-slate-700 shadow" title="位置リセット"><i class="fa-solid fa-rotate-left"></i></button>
+                `;
+                slot.appendChild(controls);
+
+                // Attach Slot Pan, Zoom, Reset & Swap Interactions
+                attachSlotInteractions(slot, idx);
+
+                collageGrid.appendChild(slot);
+            });
+        }
+
+        // Helper Slot Controls
+        window.zoomSlot = function(idx, delta) {
+            if (!state.images[idx]) return;
+            state.images[idx].zoom = Math.min(Math.max(1, state.images[idx].zoom + delta), 3);
+            renderCollage();
+        };
+
+        window.resetSlotTransform = function(idx) {
+            if (!state.images[idx]) return;
+            state.images[idx].zoom = 1;
+            state.images[idx].x = 0;
+            state.images[idx].y = 0;
+            renderCollage();
+        };
+
+        let lastTapTime = 0;
+
+        function attachSlotInteractions(slot, slotIdx) {
+            // Double Click to reset transform
+            slot.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                resetSlotTransform(slotIdx);
+            });
+
+            // Mouse Wheel for Zoom
+            slot.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY < 0 ? 0.08 : -0.08;
+                state.images[slotIdx].zoom = Math.min(Math.max(1, state.images[slotIdx].zoom + delta), 3);
+                renderCollage();
+            }, { passive: false });
+
+            // Touch & Mouse Pointer Down
+            const handlePointerDown = (e) => {
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+                // Double Tap Detection for Mobile
+                const now = Date.now();
+                if (now - lastTapTime < 300 && now - lastTapTime > 0) {
+                    clearTimeout(interactionState.longPressTimer);
+                    resetSlotTransform(slotIdx);
+                    lastTapTime = 0;
+                    return;
+                }
+                lastTapTime = now;
+
+                interactionState.activeSlotIdx = slotIdx;
+                interactionState.isPanning = true;
+                interactionState.isLongPress = false;
+                interactionState.startX = clientX;
+                interactionState.startY = clientY;
+                interactionState.initialImgX = state.images[slotIdx].x;
+                interactionState.initialImgY = state.images[slotIdx].y;
+
+                // Two Finger Pinch handling
+                if (e.touches && e.touches.length === 2) {
+                    clearTimeout(interactionState.longPressTimer);
+                    interactionState.isPanning = false;
+                    interactionState.initialPinchDist = getTouchDistance(e.touches);
+                    interactionState.initialZoom = state.images[slotIdx].zoom;
+                    return;
+                }
+
+                // Start Long-Press Timer for Swap Mode (500ms)
+                clearTimeout(interactionState.longPressTimer);
+                interactionState.longPressTimer = setTimeout(() => {
+                    interactionState.isLongPress = true;
+                    interactionState.isPanning = false;
+                    interactionState.draggedSlotIdx = slotIdx;
+
+                    slot.classList.add('swapping-active');
+                    if (navigator.vibrate) navigator.vibrate(50);
+                }, 500);
+            };
+
+            const handlePointerMove = (e) => {
+                if (interactionState.activeSlotIdx !== slotIdx) return;
+
+                // Handle Pinch Zooming
+                if (e.touches && e.touches.length === 2) {
+                    const newDist = getTouchDistance(e.touches);
+                    if (interactionState.initialPinchDist > 0) {
+                        const scaleFactor = newDist / interactionState.initialPinchDist;
+                        state.images[slotIdx].zoom = Math.min(Math.max(1, interactionState.initialZoom * scaleFactor), 3);
+                        const imgEl = slot.querySelector('.slot-img');
+                        if (imgEl) {
+                            imgEl.style.transform = `translate(${state.images[slotIdx].x}px, ${state.images[slotIdx].y}px) scale(${state.images[slotIdx].zoom})`;
+                        }
+                    }
+                    return;
+                }
+
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const deltaX = clientX - interactionState.startX;
+                const deltaY = clientY - interactionState.startY;
+
+                // Cancel long-press if dragged before 500ms
+                if (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8) {
+                    if (!interactionState.isLongPress) {
+                        clearTimeout(interactionState.longPressTimer);
+                    }
+                }
+
+                // Image Pan Mode (Standard Drag inside slot)
+                if (interactionState.isPanning && !interactionState.isLongPress) {
+                    state.images[slotIdx].x = interactionState.initialImgX + deltaX;
+                    state.images[slotIdx].y = interactionState.initialImgY + deltaY;
+
+                    const imgEl = slot.querySelector('.slot-img');
+                    if (imgEl) {
+                        imgEl.style.transform = `translate(${state.images[slotIdx].x}px, ${state.images[slotIdx].y}px) scale(${state.images[slotIdx].zoom})`;
+                    }
+                }
+
+                // Slot Swap Mode (Long Press Active)
+                if (interactionState.isLongPress) {
+                    const targetElem = document.elementFromPoint(clientX, clientY);
+                    const targetSlot = targetElem ? targetElem.closest('.collage-slot') : null;
+
+                    document.querySelectorAll('.collage-slot').forEach(s => s.classList.remove('swap-target-hover'));
+                    if (targetSlot && targetSlot !== slot) {
+                        targetSlot.classList.add('swap-target-hover');
+                    }
+                }
+            };
+
+            const handlePointerUp = (e) => {
+                clearTimeout(interactionState.longPressTimer);
+                slot.classList.remove('swapping-active');
+
+                if (interactionState.isLongPress && interactionState.activeSlotIdx === slotIdx) {
+                    const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+                    const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+                    const targetElem = document.elementFromPoint(clientX, clientY);
+                    const targetSlot = targetElem ? targetElem.closest('.collage-slot') : null;
+
+                    if (targetSlot) {
+                        const targetIdx = parseInt(targetSlot.dataset.slotIdx);
+                        if (!isNaN(targetIdx) && targetIdx !== slotIdx) {
+                            // Swap Image Positions
+                            const temp = state.images[slotIdx];
+                            state.images[slotIdx] = state.images[targetIdx];
+                            state.images[targetIdx] = temp;
+
+                            updateThumbnails();
+                            renderCollage();
+                        }
+                    }
+                }
+
+                document.querySelectorAll('.collage-slot').forEach(s => s.classList.remove('swap-target-hover', 'swapping-active'));
+                interactionState.activeSlotIdx = null;
+                interactionState.isPanning = false;
+                interactionState.isLongPress = false;
+            };
+
+            slot.addEventListener('mousedown', handlePointerDown);
+            window.addEventListener('mousemove', handlePointerMove);
+            window.addEventListener('mouseup', handlePointerUp);
+
+            slot.addEventListener('touchstart', handlePointerDown, { passive: true });
+            slot.addEventListener('touchmove', handlePointerMove, { passive: true });
+            slot.addEventListener('touchend', handlePointerUp);
+        }
+
+        function getTouchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        // Poster & Frame Style Selector Binding
+        document.querySelectorAll('.frame-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.frame-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-blue-600', 'border-blue-500', 'text-white');
+                    b.classList.add('bg-slate-800', 'text-slate-300');
+                });
+                btn.classList.add('active', 'bg-blue-600', 'border-blue-500', 'text-white');
+                state.selectedFrame = btn.dataset.frame;
+                renderCollage();
+            });
+        });
+
+        // Aspect Ratio Handler
+        document.querySelectorAll('.ratio-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.ratio-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-blue-600', 'border-blue-500', 'text-white');
+                    b.classList.add('bg-slate-800', 'text-slate-300');
+                });
+                btn.classList.add('active', 'bg-blue-600', 'border-blue-500', 'text-white');
+                state.aspectRatio = btn.dataset.ratio;
+                renderCollage();
+            });
+        });
+
+        // Sliders Controls
+        document.getElementById('gap-slider').oninput = (e) => {
+            state.gap = e.target.value;
+            document.getElementById('gap-val').innerText = `${state.gap}px`;
+            renderCollage();
+        };
+
+        document.getElementById('padding-slider').oninput = (e) => {
+            state.padding = e.target.value;
+            document.getElementById('padding-val').innerText = `${state.padding}px`;
+            renderCollage();
+        };
+
+        document.getElementById('radius-slider').oninput = (e) => {
+            state.radius = e.target.value;
+            document.getElementById('radius-val').innerText = `${state.radius}px`;
+            renderCollage();
+        };
+
+        // Background Color Pickers
+        document.getElementById('bg-color-picker').oninput = (e) => {
+            state.bgColor = e.target.value;
+            renderCollage();
+        };
+
+        document.querySelectorAll('.preset-bg').forEach(btn => {
+            btn.onclick = () => {
+                state.bgColor = btn.dataset.color;
+                document.getElementById('bg-color-picker').value = btn.dataset.color;
+                renderCollage();
+            };
+        });
+
+        // Reset Button
+        document.getElementById('reset-btn').onclick = () => {
+            state.images = [];
+            state.selectedLayoutIdx = 0;
+            state.selectedFilter = 'filter-normal';
+            state.selectedFrame = 'style-clean';
+            state.gap = 8;
+            state.padding = 12;
+            state.radius = 8;
+            state.bgColor = '#ffffff';
+
+            document.getElementById('gap-slider').value = 8;
+            document.getElementById('padding-slider').value = 12;
+            document.getElementById('radius-slider').value = 8;
+            document.getElementById('gap-val').innerText = '8px';
+            document.getElementById('padding-val').innerText = '12px';
+            document.getElementById('radius-val').innerText = '8px';
+
+            updateThumbnails();
+            renderLayoutPresets();
+            initFilterPresets();
+            renderCollage();
+        };
+
+        function drawRoundRect(ctx, x, y, w, h, r) {
+            if (ctx.roundRect) {
+                ctx.roundRect(x, y, w, h, r);
+            } else {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                ctx.beginPath();
+                ctx.moveTo(x + r, y);
+                ctx.arcTo(x + w, y, x + w, y + h, r);
+                ctx.arcTo(x + w, y + h, x, y + h, r);
+                ctx.arcTo(x, y + h, x, y, r);
+                ctx.arcTo(x, y, x + w, y, r);
+                ctx.closePath();
+            }
+        }
+
+        document.getElementById('export-btn').onclick = async () => {
+            if (state.images.length < 2) {
+                alert('コラージュを作成するには、最低2枚の画像をアップロードしてください。');
+                return;
+            }
+
+            const exportBtn = document.getElementById('export-btn');
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i>高画質生成中...`;
+            exportBtn.disabled = true;
+
+            try {
+                // Get DOM canvas container and current preview dimensions
+                const collageCanvasElem = document.getElementById('collage-canvas');
+                const canvasRect = collageCanvasElem.getBoundingClientRect();
+
+                // Target high-definition resolution with strict aspect ratio math
+                const ratioConfig = aspectRatios[state.aspectRatio] || { w: 1, h: 1 };
+                let targetW = 2400;
+                let targetH = Math.round(targetW * (ratioConfig.h / ratioConfig.w));
+
+                const scale = targetW / canvasRect.width;
+
+                // Create offscreen export canvas
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = targetW;
+                exportCanvas.height = targetH;
+                const ctx = exportCanvas.getContext('2d');
+
+                // Preload all image elements to ensure complete drawing
+                const loadedImages = await Promise.all(state.images.map(imgData => {
+                    return new Promise((resolve) => {
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = () => resolve(img);
+                        img.onerror = () => resolve(img);
+                        img.src = imgData.src;
+                    });
+                }));
+
+                // 1. Draw Canvas Outer Background & Frame Style
+                if (state.selectedFrame === 'style-vintage-paper') {
+                    ctx.fillStyle = '#f7f4ea';
+                } else if (state.selectedFrame === 'style-dark-editorial') {
+                    ctx.fillStyle = '#0a0a0a';
+                } else {
+                    ctx.fillStyle = state.bgColor;
+                }
+                ctx.fillRect(0, 0, targetW, targetH);
+
+                // 2. Render Slots based on exact DOM preview bounds
+                const slotElems = collageCanvasElem.querySelectorAll('.collage-slot');
+
+                slotElems.forEach((slotElem, idx) => {
+                    if (!loadedImages[idx]) return;
+
+                    const sRect = slotElem.getBoundingClientRect();
+                    const slotX = (sRect.left - canvasRect.left) * scale;
+                    const slotY = (sRect.top - canvasRect.top) * scale;
+                    const slotW = sRect.width * scale;
+                    const slotH = sRect.height * scale;
+                    const slotRadius = state.radius * scale;
+
+                    ctx.save();
+
+                    // Clip slot area with rounded corners
+                    ctx.beginPath();
+                    drawRoundRect(ctx, slotX, slotY, slotW, slotH, slotRadius);
+                    ctx.clip();
+
+                    // Slot Background
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(slotX, slotY, slotW, slotH);
+
+                    // Apply CSS Filter
+                    const filterStr = filterCSSMap[state.selectedFilter] || 'none';
+                    ctx.filter = filterStr;
+
+                    // Calculate proportional transform (object-fit: cover + pan + zoom)
+                    const imgObj = loadedImages[idx];
+                    const pSlotW = sRect.width;
+                    const pSlotH = sRect.height;
+                    const imgNW = imgObj.naturalWidth || imgObj.width || 1;
+                    const imgNH = imgObj.naturalHeight || imgObj.height || 1;
+
+                    const userZoom = state.images[idx].zoom || 1;
+                    const userX = state.images[idx].x || 0;
+                    const userY = state.images[idx].y || 0;
+
+                    const scaleCover = Math.max(pSlotW / imgNW, pSlotH / imgNH);
+                    const baseW = imgNW * scaleCover;
+                    const baseH = imgNH * scaleCover;
+
+                    const normW = (baseW / pSlotW) * userZoom;
+                    const normH = (baseH / pSlotH) * userZoom;
+                    const normCenterX = 0.5 + (userX / pSlotW);
+                    const normCenterY = 0.5 + (userY / pSlotH);
+
+                    const normX = normCenterX - (normW / 2);
+                    const normY = normCenterY - (normH / 2);
+
+                    const drawX = slotX + (normX * slotW);
+                    const drawY = slotY + (normY * slotH);
+                    const drawW = normW * slotW;
+                    const drawH = normH * slotH;
+
+                    // Draw transformed image
+                    ctx.drawImage(imgObj, drawX, drawY, drawW, drawH);
+
+                    ctx.restore();
+                });
+
+                // 3. Draw Frame Outer Borders if necessary
+                if (state.selectedFrame === 'style-gallery') {
+                    ctx.strokeStyle = '#111111';
+                    ctx.lineWidth = 24 * (scale / 2);
+                    ctx.strokeRect(0, 0, targetW, targetH);
+                } else if (state.selectedFrame === 'style-vintage-paper') {
+                    ctx.strokeStyle = '#eae5d8';
+                    ctx.lineWidth = 16 * (scale / 2);
+                    ctx.strokeRect(0, 0, targetW, targetH);
+                }
+
+                // Download PNG
+                const link = document.createElement('a');
+                link.download = `editorial-collage-${Date.now()}.png`;
+                link.href = exportCanvas.toDataURL('image/png', 1.0);
+                link.click();
+
+            } catch (err) {
+                console.error('Export Error:', err);
+                alert('画像の出力中にエラーが発生しました。');
+            } finally {
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+            }
+        };
+
+        // Initialize App
+        window.onload = () => {
+            renderLayoutPresets();
+            initFilterPresets();
+            renderCollage();
+        };
+
+        window.addEventListener('resize', () => {
+            renderCollage();
+        });
+    </script>
+</body>
+</html>
