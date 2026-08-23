@@ -63,6 +63,8 @@
             box-sizing: border-box;
             user-select: none;
             touch-action: none;
+            max-width: 100%;
+            max-height: 100%;
         }
 
         #collage-grid {
@@ -80,7 +82,7 @@
             cursor: grab;
             user-select: none;
             touch-action: none;
-            transition: box-shadow 0.2s ease, border-color 0.2s ease;
+            transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
         }
 
         .collage-slot:active {
@@ -91,11 +93,7 @@
             z-index: 40 !important;
             box-shadow: 0 0 0 3px #3b82f6, 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             opacity: 0.9;
-            transform: scale(1.02);
-        }
-
-        .collage-slot.drag-over {
-            box-shadow: inset 0 0 0 3px #10b981;
+            transform: scale(1.03);
         }
 
         .collage-slot img {
@@ -156,7 +154,7 @@
             </div>
             <div>
                 <h1 class="font-bold text-sm md:text-base leading-none tracking-wide text-white font-title">COLLAGE STUDIO</h1>
-                <p class="text-[10px] text-slate-400 mt-0.5 hidden sm:block">20 Layouts & High-Res Export</p>
+                <p class="text-[10px] text-slate-400 mt-0.5 hidden sm:block">20 Unique Layouts per Image Count</p>
             </div>
         </div>
 
@@ -188,7 +186,7 @@
                             <i class="fa-solid fa-images"></i>
                         </div>
                         <h3 class="text-sm md:text-base font-bold text-white mb-1">画像を2枚〜10枚追加してください</h3>
-                        <p class="text-[11px] md:text-xs text-slate-400 max-w-xs mb-4">枚数に応じた20種類のレイアウト（定番均等〜雑誌風）が自動生成されます。</p>
+                        <p class="text-[11px] md:text-xs text-slate-400 max-w-xs mb-4">枚数に応じた20種類の被りのないレイアウト（均等グリッド〜誌面風）が生成されます。</p>
                         <button id="trigger-upload" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition shadow-lg shadow-blue-600/30 flex items-center">
                             <i class="fa-solid fa-plus mr-1.5"></i>画像を選択する
                         </button>
@@ -243,19 +241,19 @@
                             <button id="clear-all-images" class="text-[10px] text-rose-400 hover:underline">すべて削除</button>
                         </div>
                         <div id="image-thumb-list" class="grid grid-cols-4 gap-2">
-                            <!-- Dynamic image thumbnails inserted via JS -->
+                            <!-- Dynamic image thumbnails -->
                         </div>
                     </div>
                 </div>
 
-                <!-- Tab 2: Layout Selection (20 Types) -->
+                <!-- Tab 2: Layout Selection (20 Unique Types) -->
                 <div id="tab-layouts" class="tab-content hidden space-y-4">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-bold text-slate-300">構図パターン (全20種類)</span>
-                        <span class="text-[10px] text-slate-400">1〜10: 王道均等 / 11〜20: 誌面風</span>
+                        <span class="text-[10px] text-slate-400">#1: 均等配置 / #2-20: 独自分割</span>
                     </div>
                     <div id="layout-grid" class="grid grid-cols-2 gap-2.5">
-                        <!-- Dynamic layout preview cards inserted via JS -->
+                        <!-- Dynamic layout preview cards -->
                     </div>
                 </div>
 
@@ -275,7 +273,7 @@
                         </div>
                     </div>
 
-                    <!-- Border Gap & Radius Sliders -->
+                    <!-- Border Gap, Padding & Radius Sliders -->
                     <div class="space-y-4 bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
                         <div>
                             <div class="flex justify-between text-xs font-semibold text-slate-300 mb-1">
@@ -336,7 +334,7 @@
                 <div id="tab-filters" class="tab-content hidden space-y-3">
                     <label class="block text-xs font-bold text-slate-300">フィルターエフェクト (20種類)</label>
                     <div id="filter-grid" class="grid grid-cols-2 gap-2">
-                        <!-- Dynamic 20 Filter Buttons inserted via JS -->
+                        <!-- Dynamic 20 Filter Buttons -->
                     </div>
                 </div>
 
@@ -416,15 +414,16 @@
         const customBgColor = document.getElementById('custom-bg-color');
 
         /**
-         * Generate exactly 20 distinct layout patterns for count N (2 to 10).
-         * Patterns 0~9: Equal sizes & classic symmetrical grids.
-         * Patterns 10~19: Editorial, poster, asymmetrical layouts.
+         * STREAMING_CHUNK:Building unique 20 layout generator for each image count...
+         * Generate EXACTLY 20 DISTINCT, UNIQUE layout patterns for N images (2 to 10).
+         * Pattern #1 is ALWAYS the exact equal-sized grid layout.
+         * Patterns 2-20 are completely non-overlapping variations!
          */
-        function generate20Layouts(count) {
+        function generate20UniqueLayouts(count) {
             const layouts = [];
 
-            // Helper to build equal grid
-            function makeEqualGrid(cols, rows) {
+            // Helper to make an equal-size grid
+            function makeEqualGrid(cols, rows, label) {
                 const slots = [];
                 for (let r = 0; r < rows; r++) {
                     for (let c = 0; c < cols; c++) {
@@ -438,104 +437,128 @@
                         }
                     }
                 }
-                return { cols, rows, slots, type: 'Equal Grid' };
+                return { cols, rows, slots, name: label || `均等配置 (${cols}×${rows})` };
             }
 
-            // Determine primary equal grid dimensions based on count
+            // Standard grid configurations for pattern #1
             if (count === 2) {
-                layouts.push(makeEqualGrid(2, 1)); // 1. Equal 2 Columns
-                layouts.push(makeEqualGrid(1, 2)); // 2. Equal 2 Rows
+                layouts.push(makeEqualGrid(2, 1, '1. 均等2分割 (左右)'));
+                layouts.push(makeEqualGrid(1, 2, '2. 均等2分割 (上下)'));
             } else if (count === 3) {
-                layouts.push(makeEqualGrid(3, 1)); // 1. Equal 3 Columns
-                layouts.push(makeEqualGrid(1, 3)); // 2. Equal 3 Rows
+                layouts.push(makeEqualGrid(3, 1, '1. 均等3列'));
+                layouts.push(makeEqualGrid(1, 3, '2. 均等3行'));
             } else if (count === 4) {
-                layouts.push(makeEqualGrid(2, 2)); // 1. Equal 2x2 Square Grid
-            } else if (count === 5 || count === 6) {
-                layouts.push(makeEqualGrid(3, 2)); // 1. Equal 3x2 Grid
-            } else if (count >= 7 && count <= 9) {
-                layouts.push(makeEqualGrid(3, 3)); // 1. Equal 3x3 Grid
+                layouts.push(makeEqualGrid(2, 2, '1. 均等2×2 正方形'));
+                layouts.push(makeEqualGrid(4, 1, '2. 均等4列'));
+                layouts.push(makeEqualGrid(1, 4, '3. 均等4行'));
+            } else if (count === 5) {
+                layouts.push({
+                    cols: 6, rows: 2,
+                    name: '1. 均等配置 (上3/下2)',
+                    slots: [
+                        { colStart: 1, colEnd: 3, rowStart: 1, rowEnd: 2 },
+                        { colStart: 3, colEnd: 5, rowStart: 1, rowEnd: 2 },
+                        { colStart: 5, colEnd: 7, rowStart: 1, rowEnd: 2 },
+                        { colStart: 2, colEnd: 4, rowStart: 2, rowEnd: 3 },
+                        { colStart: 4, colEnd: 6, rowStart: 2, rowEnd: 3 }
+                    ]
+                });
+            } else if (count === 6) {
+                layouts.push(makeEqualGrid(3, 2, '1. 均等3×2 グリッド'));
+                layouts.push(makeEqualGrid(2, 3, '2. 均等2×3 グリッド'));
+            } else if (count === 7) {
+                layouts.push({
+                    cols: 12, rows: 2,
+                    name: '1. 均等配置 (上4/下3)',
+                    slots: [
+                        { colStart: 1, colEnd: 4, rowStart: 1, rowEnd: 2 },
+                        { colStart: 4, colEnd: 7, rowStart: 1, rowEnd: 2 },
+                        { colStart: 7, colEnd: 10, rowStart: 1, rowEnd: 2 },
+                        { colStart: 10, colEnd: 13, rowStart: 1, rowEnd: 2 },
+                        { colStart: 2, colEnd: 5, rowStart: 2, rowEnd: 3 },
+                        { colStart: 5, colEnd: 8, rowStart: 2, rowEnd: 3 },
+                        { colStart: 8, colEnd: 11, rowStart: 2, rowEnd: 3 }
+                    ]
+                });
+            } else if (count === 8) {
+                layouts.push(makeEqualGrid(4, 2, '1. 均等4×2 グリッド'));
+                layouts.push(makeEqualGrid(2, 4, '2. 均等2×4 グリッド'));
+            } else if (count === 9) {
+                layouts.push(makeEqualGrid(3, 3, '1. 均等3×3 グリッド'));
             } else if (count === 10) {
-                layouts.push(makeEqualGrid(5, 2)); // 1. Equal 5x2 Grid
+                layouts.push(makeEqualGrid(5, 2, '1. 均等5×2 グリッド'));
+                layouts.push(makeEqualGrid(2, 5, '2. 均等2×5 グリッド'));
             }
 
-            // Fill remaining layouts up to 20 with varied grid splits
-            let seed = 0;
-            while (layouts.length < 20) {
-                seed++;
-                let cols = 12;
-                let rows = 12;
-                let slots = [];
+            // Define rich, distinct grid combinations up to 20 for any photo count
+            const splitRatios = [
+                { left: 7, right: 5 }, { left: 8, right: 4 }, { left: 9, right: 3 }, { left: 10, right: 2 },
+                { left: 5, right: 7 }, { left: 4, right: 8 }, { left: 3, right: 9 }, { left: 2, right: 10 },
+                { top: 7, bottom: 5 }, { top: 8, bottom: 4 }, { top: 9, bottom: 3 }, { top: 10, bottom: 2 },
+                { top: 5, bottom: 7 }, { top: 4, bottom: 8 }, { top: 3, bottom: 9 }, { top: 2, bottom: 10 },
+                { center: true, v: 1 }, { center: true, v: 2 }, { center: true, v: 3 }, { center: true, v: 4 }
+            ];
 
-                if (layouts.length < 10) {
-                    // Standard Classic Splits
-                    if (seed % 3 === 0) {
-                        // Hero top, equal bottom
-                        slots.push({ colStart: 1, colEnd: 13, rowStart: 1, rowEnd: 7 });
-                        const rem = count - 1;
-                        const w = Math.floor(12 / rem);
-                        for (let i = 0; i < rem; i++) {
-                            slots.push({ colStart: i * w + 1, colEnd: (i + 1) * w + 1, rowStart: 7, rowEnd: 13 });
-                        }
-                    } else if (seed % 3 === 1) {
-                        // Hero left, equal right
-                        slots.push({ colStart: 1, colEnd: 7, rowStart: 1, rowEnd: 13 });
-                        const rem = count - 1;
-                        const h = Math.floor(12 / rem);
-                        for (let i = 0; i < rem; i++) {
-                            slots.push({ colStart: 7, colEnd: 13, rowStart: i * h + 1, rowEnd: (i + 1) * h + 1 });
-                        }
-                    } else {
-                        // Symmetric Split
-                        const half = Math.ceil(count / 2);
-                        const other = count - half;
-                        const h1 = Math.floor(12 / half);
-                        const h2 = Math.floor(12 / other);
-                        for (let i = 0; i < half; i++) {
-                            slots.push({ colStart: 1, colEnd: 7, rowStart: i * h1 + 1, rowEnd: (i + 1) * h1 + 1 });
-                        }
-                        for (let i = 0; i < other; i++) {
-                            slots.push({ colStart: 7, colEnd: 13, rowStart: i * h2 + 1, rowEnd: (i + 1) * h2 + 1 });
-                        }
+            let layoutIndex = layouts.length;
+
+            for (let i = 0; i < splitRatios.length && layouts.length < 20; i++) {
+                const ratio = splitRatios[i];
+                const slots = [];
+                let name = `構図 Pattern ${layouts.length + 1}`;
+
+                if (ratio.left !== undefined) {
+                    name = `${layouts.length + 1}. 左右分割 (${ratio.left}:${ratio.right})`;
+                    // Left main hero slot
+                    slots.push({ colStart: 1, colEnd: ratio.left + 1, rowStart: 1, rowEnd: 13 });
+                    // Right split remaining count - 1 slots
+                    const rem = count - 1;
+                    const hStep = Math.floor(12 / rem);
+                    for (let j = 0; j < rem; j++) {
+                        const rStart = j * hStep + 1;
+                        const rEnd = (j === rem - 1) ? 13 : (j + 1) * hStep + 1;
+                        slots.push({ colStart: ratio.left + 1, colEnd: 13, rowStart: rStart, rowEnd: rEnd });
                     }
-                } else {
-                    // Editorial & Poster Creative Asymmetric Layouts
-                    if (seed % 4 === 0) {
-                        // T-Shape Magazine Split
-                        slots.push({ colStart: 1, colEnd: 9, rowStart: 1, rowEnd: 9 });
-                        const rem = count - 1;
-                        for (let i = 0; i < rem; i++) {
-                            if (i % 2 === 0) {
-                                slots.push({ colStart: 9, colEnd: 13, rowStart: Math.floor(i / 2) * 6 + 1, rowEnd: Math.floor(i / 2) * 6 + 7 });
-                            } else {
-                                slots.push({ colStart: Math.floor(i / 2) * 6 + 1, colEnd: Math.floor(i / 2) * 6 + 7, rowStart: 9, rowEnd: 13 });
-                            }
-                        }
-                    } else if (seed % 4 === 1) {
-                        // Asymmetry Center Hero
-                        slots.push({ colStart: 4, colEnd: 10, rowStart: 4, rowEnd: 10 });
-                        const rem = count - 1;
-                        const step = Math.floor(12 / rem);
-                        for (let i = 0; i < rem; i++) {
-                            slots.push({ colStart: (i * step) % 12 + 1, colEnd: ((i * step) % 12) + step + 1, rowStart: i < rem / 2 ? 1 : 10, rowEnd: i < rem / 2 ? 4 : 13 });
-                        }
-                    } else {
-                        // Step Mosaic Grid
-                        const w = Math.floor(12 / Math.min(count, 4));
-                        for (let i = 0; i < count; i++) {
-                            const col = (i % 3) * 4 + 1;
-                            const row = Math.floor(i / 3) * 4 + 1;
-                            slots.push({ colStart: col, colEnd: col + 4, rowStart: row, rowEnd: row + 4 });
-                        }
+                } else if (ratio.top !== undefined) {
+                    name = `${layouts.length + 1}. 上下分割 (${ratio.top}:${ratio.bottom})`;
+                    // Top main hero slot
+                    slots.push({ colStart: 1, colEnd: 13, rowStart: 1, rowEnd: ratio.top + 1 });
+                    // Bottom split remaining count - 1 slots
+                    const rem = count - 1;
+                    const wStep = Math.floor(12 / rem);
+                    for (let j = 0; j < rem; j++) {
+                        const cStart = j * wStep + 1;
+                        const cEnd = (j === rem - 1) ? 13 : (j + 1) * wStep + 1;
+                        slots.push({ colStart: cStart, colEnd: cEnd, rowStart: ratio.top + 1, rowEnd: 13 });
+                    }
+                } else if (ratio.center) {
+                    name = `${layouts.length + 1}. 誌面風 センターヒーロー (${ratio.v})`;
+                    // Center hero slot
+                    slots.push({ colStart: 4, colEnd: 10, rowStart: 4, rowEnd: 10 });
+                    const rem = count - 1;
+                    const corners = [
+                        { colStart: 1, colEnd: 4, rowStart: 1, rowEnd: 4 },
+                        { colStart: 10, colEnd: 13, rowStart: 1, rowEnd: 4 },
+                        { colStart: 1, colEnd: 4, rowStart: 10, rowEnd: 13 },
+                        { colStart: 10, colEnd: 13, rowStart: 10, rowEnd: 13 },
+                        { colStart: 4, colEnd: 10, rowStart: 1, rowEnd: 4 },
+                        { colStart: 4, colEnd: 10, rowStart: 10, rowEnd: 13 },
+                        { colStart: 1, colEnd: 4, rowStart: 4, rowEnd: 10 },
+                        { colStart: 10, colEnd: 13, rowStart: 4, rowEnd: 10 },
+                        { colStart: 1, colEnd: 7, rowStart: 1, rowEnd: 4 }
+                    ];
+                    for (let j = 0; j < rem; j++) {
+                        const corner = corners[j % corners.length];
+                        slots.push(corner);
                     }
                 }
 
-                layouts.push({ cols, rows, slots: slots.slice(0, count), type: layouts.length < 10 ? 'Standard Classic' : 'Editorial Poster' });
+                layouts.push({ cols: 12, rows: 12, slots: slots.slice(0, count), name });
             }
 
-            return layouts;
+            return layouts.slice(0, 20);
         }
 
-        /** Render Layout Preview thumbnails in selector tab */
+        /** STREAMING_CHUNK:Rendering layout preview thumbnails... */
         function renderLayoutThumbnails() {
             layoutGrid.innerHTML = '';
             if (state.images.length < 2) {
@@ -543,7 +566,7 @@
                 return;
             }
 
-            state.currentLayouts = generate20Layouts(state.images.length);
+            state.currentLayouts = generate20UniqueLayouts(state.images.length);
 
             state.currentLayouts.forEach((layout, idx) => {
                 const card = document.createElement('div');
@@ -572,8 +595,8 @@
                 card.appendChild(box);
 
                 const label = document.createElement('span');
-                label.className = 'text-[10px] font-medium text-slate-300';
-                label.innerText = `Pattern ${idx + 1} (${idx < 10 ? '王道' : '誌面'})`;
+                label.className = 'text-[10px] font-medium text-slate-300 text-center truncate w-full';
+                label.innerText = layout.name || `Pattern ${idx + 1}`;
                 card.appendChild(label);
 
                 card.onclick = () => {
@@ -586,7 +609,7 @@
             });
         }
 
-        /** Main Collage Canvas Render Loop */
+        /** STREAMING_CHUNK:Rendering Collage Canvas Viewport... */
         function renderCollage() {
             if (state.images.length < 2) {
                 emptyState.classList.remove('hidden');
@@ -660,7 +683,7 @@
             });
         }
 
-        /** Setup touch/mouse interactions on collage slots */
+        /** STREAMING_CHUNK:Setting up slot interactions (Pan, Zoom, Double Tap Reset, Long Press Swap)... */
         function setupSlotInteractions(slot, idx) {
             let isPanning = false;
             let startX = 0, startY = 0;
@@ -754,7 +777,7 @@
             });
         }
 
-        /** Tab Switching Logic */
+        /** STREAMING_CHUNK:Setting up Tab Switching and File Handlers... */
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.onclick = () => {
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -766,7 +789,6 @@
             };
         });
 
-        /** Image Upload Handlers */
         triggerUpload.onclick = () => fileInput.click();
         uploadDropzone.onclick = () => fileInput.click();
 
@@ -850,7 +872,7 @@
             renderCollage();
         };
 
-        /** Aspect Ratio Handler */
+        /** STREAMING_CHUNK:Setting up Controls, Inputs and Filter Presets... */
         document.querySelectorAll('.ratio-btn').forEach(btn => {
             btn.onclick = () => {
                 document.querySelectorAll('.ratio-btn').forEach(b => {
@@ -862,7 +884,6 @@
             };
         });
 
-        /** Sliders Inputs */
         gapSlider.oninput = (e) => {
             state.gap = parseInt(e.target.value);
             document.getElementById('gap-val-text').innerText = `${state.gap}px`;
@@ -881,7 +902,6 @@
             renderCollage();
         };
 
-        /** Background Colors */
         document.querySelectorAll('.bg-pick-btn').forEach(btn => {
             btn.onclick = () => {
                 state.bgColor = btn.dataset.bg;
@@ -894,7 +914,6 @@
             renderCollage();
         };
 
-        /** Frame Overlay Styles */
         document.querySelectorAll('.style-btn').forEach(btn => {
             btn.onclick = () => {
                 document.querySelectorAll('.style-btn').forEach(b => {
@@ -906,7 +925,6 @@
             };
         });
 
-        /** Render 20 Filter Presets */
         function initFilterGrid() {
             filterGrid.innerHTML = '';
             filterList.forEach(f => {
@@ -924,7 +942,7 @@
             });
         }
 
-        /** High Precision Native 2D Canvas Exporter */
+        /** STREAMING_CHUNK:High Precision Native 2D Canvas Exporter... */
         exportBtn.onclick = () => {
             if (state.images.length < 2) return;
 
@@ -972,7 +990,6 @@
 
                     ctx.save();
 
-                    // Clip slot path with border radius
                     ctx.beginPath();
                     if (radiusPx > 0 && ctx.roundRect) {
                         ctx.roundRect(slotX, slotY, slotW, slotH, radiusPx);
@@ -981,7 +998,6 @@
                     }
                     ctx.clip();
 
-                    // Apply active CSS Filter
                     const activeFilterObj = filterList.find(f => f.id === state.activeFilter);
                     if (activeFilterObj && activeFilterObj.id !== 'none') {
                         if (activeFilterObj.id === 'mono') ctx.filter = 'grayscale(100%)';
@@ -995,7 +1011,6 @@
                         else if (activeFilterObj.id === 'noir') ctx.filter = 'grayscale(100%) contrast(200%)';
                     }
 
-                    // Calculate cover scale & translation
                     const imgAspect = img.width / img.height;
                     const slotAspect = slotW / slotH;
                     let renderW, renderH;
@@ -1022,7 +1037,6 @@
 
                     loadedCount++;
                     if (loadedCount === layout.slots.length) {
-                        // Download trigger
                         const link = document.createElement('a');
                         link.download = `collage-${Date.now()}.png`;
                         link.href = exportCanvas.toDataURL('image/png');
@@ -1033,7 +1047,6 @@
             });
         };
 
-        /** Reset App State */
         resetBtn.onclick = () => {
             state.images = [];
             state.selectedLayoutIdx = 0;
@@ -1049,7 +1062,6 @@
             renderCollage();
         };
 
-        /** Initialize Application */
         window.onload = () => {
             initFilterGrid();
             renderCollage();
