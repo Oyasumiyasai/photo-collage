@@ -154,7 +154,7 @@
             </div>
             <div>
                 <h1 class="font-bold text-sm md:text-base leading-none tracking-wide text-white font-title">COLLAGE STUDIO</h1>
-                <p class="text-[10px] text-slate-400 mt-0.5 hidden sm:block">20 Unique Layouts per Image Count</p>
+                <p class="text-[10px] text-slate-400 mt-0.5 hidden sm:block">枚数に応じた20種類の定番＆人気レイアウト</p>
             </div>
         </div>
 
@@ -186,7 +186,7 @@
                             <i class="fa-solid fa-images"></i>
                         </div>
                         <h3 class="text-sm md:text-base font-bold text-white mb-1">画像を2枚〜10枚追加してください</h3>
-                        <p class="text-[11px] md:text-xs text-slate-400 max-w-xs mb-4">枚数に応じた20種類の被りのないレイアウト（均等グリッド〜誌面風）が生成されます。</p>
+                        <p class="text-[11px] md:text-xs text-slate-400 max-w-xs mb-4">選択した枚数に合わせた20種類の均等＆定番レイアウトからコラージュを作成できます。</p>
                         <button id="trigger-upload" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition shadow-lg shadow-blue-600/30 flex items-center">
                             <i class="fa-solid fa-plus mr-1.5"></i>画像を選択する
                         </button>
@@ -250,7 +250,7 @@
                 <div id="tab-layouts" class="tab-content hidden space-y-4">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-bold text-slate-300">構図パターン (全20種類)</span>
-                        <span class="text-[10px] text-slate-400">#1: 均等配置 / #2-20: 独自分割</span>
+                        <span class="text-[10px] text-slate-400">#1: 均等グリッド / #2-20: 人気レイアウト</span>
                     </div>
                     <div id="layout-grid" class="grid grid-cols-2 gap-2.5">
                         <!-- Dynamic layout preview cards -->
@@ -414,145 +414,193 @@
         const customBgColor = document.getElementById('custom-bg-color');
 
         /**
-         * STREAMING_CHUNK:Building unique 20 layout generator for each image count...
+         * STREAMING_CHUNK:Building 20 unique standard collage layouts for photo count N...
          * Generate EXACTLY 20 DISTINCT, UNIQUE layout patterns for N images (2 to 10).
-         * Pattern #1 is ALWAYS the exact equal-sized grid layout.
-         * Patterns 2-20 are completely non-overlapping variations!
+         * Standard and equal-spaced grid layouts with 100% exact mathematical column/row dimensions.
          */
         function generate20UniqueLayouts(count) {
             const layouts = [];
 
-            // Helper to make an equal-size grid
-            function makeEqualGrid(cols, rows, label) {
+            function addLayout(name, cols, rows, slotDefs) {
+                layouts.push({ name, cols, rows, slots: slotDefs });
+            }
+
+            // Exact Vertical Stripes (1 x count) - 100% equal width
+            function makeVerticalStripes(name) {
                 const slots = [];
-                for (let r = 0; r < rows; r++) {
-                    for (let c = 0; c < cols; c++) {
-                        if (slots.length < count) {
-                            slots.push({
-                                colStart: c + 1,
-                                colEnd: c + 2,
-                                rowStart: r + 1,
-                                rowEnd: r + 2
-                            });
+                for (let i = 0; i < count; i++) {
+                    slots.push({ colStart: i + 1, colEnd: i + 2, rowStart: 1, rowEnd: 2 });
+                }
+                return { name, cols: count, rows: 1, slots };
+            }
+
+            // Exact Horizontal Stripes (count x 1) - 100% equal height
+            function makeHorizontalStripes(name) {
+                const slots = [];
+                for (let i = 0; i < count; i++) {
+                    slots.push({ colStart: 1, colEnd: 2, rowStart: i + 1, rowEnd: i + 2 });
+                }
+                return { name, cols: 1, rows: count, slots };
+            }
+
+            // Exact Top Hero (1 Big Top, N-1 Equal Bottom)
+            function makeTopHero(name) {
+                const subCount = count - 1;
+                const slots = [{ colStart: 1, colEnd: subCount + 1, rowStart: 1, rowEnd: 2 }];
+                for (let i = 0; i < subCount; i++) {
+                    slots.push({ colStart: i + 1, colEnd: i + 2, rowStart: 2, rowEnd: 3 });
+                }
+                return { name, cols: subCount, rows: 2, slots };
+            }
+
+            // Exact Bottom Hero (N-1 Equal Top, 1 Big Bottom)
+            function makeBottomHero(name) {
+                const subCount = count - 1;
+                const slots = [];
+                for (let i = 0; i < subCount; i++) {
+                    slots.push({ colStart: i + 1, colEnd: i + 2, rowStart: 1, rowEnd: 2 });
+                }
+                slots.unshift({ colStart: 1, colEnd: subCount + 1, rowStart: 2, rowEnd: 3 });
+                return { name, cols: subCount, rows: 2, slots };
+            }
+
+            // Exact Left Hero (1 Big Left, N-1 Equal Right)
+            function makeLeftHero(name) {
+                const subCount = count - 1;
+                const slots = [{ colStart: 1, colEnd: 2, rowStart: 1, rowEnd: subCount + 1 }];
+                for (let i = 0; i < subCount; i++) {
+                    slots.push({ colStart: 2, colEnd: 3, rowStart: i + 1, rowEnd: i + 2 });
+                }
+                return { name, cols: 2, rows: subCount, slots };
+            }
+
+            // Exact Right Hero (N-1 Equal Left, 1 Big Right)
+            function makeRightHero(name) {
+                const subCount = count - 1;
+                const slots = [];
+                for (let i = 0; i < subCount; i++) {
+                    slots.push({ colStart: 1, colEnd: 2, rowStart: i + 1, rowEnd: i + 2 });
+                }
+                slots.unshift({ colStart: 2, colEnd: 3, rowStart: 1, rowEnd: subCount + 1 });
+                return { name, cols: 2, rows: subCount, slots };
+            }
+
+            // 1. Primary Equal Grids by Photo Count
+            if (count === 2) {
+                addLayout('1. 均等2分割 (左右)', 2, 1, [{colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:2,colEnd:3,rowStart:1,rowEnd:2}]);
+                addLayout('2. 均等2分割 (上下)', 1, 2, [{colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:1,colEnd:2,rowStart:2,rowEnd:3}]);
+            } else if (count === 3) {
+                addLayout('1. 均等3列 (縦スリム)', 3, 1, [{colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:2,colEnd:3,rowStart:1,rowEnd:2},{colStart:3,colEnd:4,rowStart:1,rowEnd:2}]);
+                addLayout('2. 均等3行 (横スリム)', 1, 3, [{colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:1,colEnd:2,rowStart:2,rowEnd:3},{colStart:1,colEnd:2,rowStart:3,rowEnd:4}]);
+            } else if (count === 4) {
+                addLayout('1. 均等2×2 正方形', 2, 2, [
+                    {colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:2,colEnd:3,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:2,rowStart:2,rowEnd:3},{colStart:2,colEnd:3,rowStart:2,rowEnd:3}
+                ]);
+                addLayout('2. 均等4列 (縦スリム)', 4, 1, [
+                    {colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:2,colEnd:3,rowStart:1,rowEnd:2},
+                    {colStart:3,colEnd:4,rowStart:1,rowEnd:2},{colStart:4,colEnd:5,rowStart:1,rowEnd:2}
+                ]);
+            } else if (count === 5) {
+                addLayout('1. 均等配置 (上3/下2)', 6, 2, [
+                    {colStart:1,colEnd:3,rowStart:1,rowEnd:2},{colStart:3,colEnd:5,rowStart:1,rowEnd:2},{colStart:5,colEnd:7,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:4,rowStart:2,rowEnd:3},{colStart:4,colEnd:7,rowStart:2,rowEnd:3}
+                ]);
+                addLayout('2. 均等配置 (上2/下3)', 6, 2, [
+                    {colStart:1,colEnd:4,rowStart:1,rowEnd:2},{colStart:4,colEnd:7,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:3,rowStart:2,rowEnd:3},{colStart:3,colEnd:5,rowStart:2,rowEnd:3},{colStart:5,colEnd:7,rowStart:2,rowEnd:3}
+                ]);
+            } else if (count === 6) {
+                addLayout('1. 均等3×2 グリッド', 3, 2, [
+                    {colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:2,colEnd:3,rowStart:1,rowEnd:2},{colStart:3,colEnd:4,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:2,rowStart:2,rowEnd:3},{colStart:2,colEnd:3,rowStart:2,rowEnd:3},{colStart:3,colEnd:4,rowStart:2,rowEnd:3}
+                ]);
+                addLayout('2. 均等2×3 グリッド', 2, 3, [
+                    {colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:2,colEnd:3,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:2,rowStart:2,rowEnd:3},{colStart:2,colEnd:3,rowStart:2,rowEnd:3},
+                    {colStart:1,colEnd:2,rowStart:3,rowEnd:4},{colStart:2,colEnd:3,rowStart:3,rowEnd:4}
+                ]);
+            } else if (count === 7) {
+                addLayout('1. 均等配置 (上4/下3)', 12, 2, [
+                    {colStart:1,colEnd:4,rowStart:1,rowEnd:2},{colStart:4,colEnd:7,rowStart:1,rowEnd:2},{colStart:7,colEnd:10,rowStart:1,rowEnd:2},{colStart:10,colEnd:13,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:5,rowStart:2,rowEnd:3},{colStart:5,colEnd:9,rowStart:2,rowEnd:3},{colStart:9,colEnd:13,rowStart:2,rowEnd:3}
+                ]);
+                addLayout('2. 均等配置 (上3/下4)', 12, 2, [
+                    {colStart:1,colEnd:5,rowStart:1,rowEnd:2},{colStart:5,colEnd:9,rowStart:1,rowEnd:2},{colStart:9,colEnd:13,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:4,rowStart:2,rowEnd:3},{colStart:4,colEnd:7,rowStart:2,rowEnd:3},{colStart:7,colEnd:10,rowStart:2,rowEnd:3},{colStart:10,colEnd:13,rowStart:2,rowEnd:3}
+                ]);
+            } else if (count === 8) {
+                addLayout('1. 均等4×2 グリッド', 4, 2, [
+                    {colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:2,colEnd:3,rowStart:1,rowEnd:2},{colStart:3,colEnd:4,rowStart:1,rowEnd:2},{colStart:4,colEnd:5,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:2,rowStart:2,rowEnd:3},{colStart:2,colEnd:3,rowStart:2,rowEnd:3},{colStart:3,colEnd:4,rowStart:2,rowEnd:3},{colStart:4,colEnd:5,rowStart:2,rowEnd:3}
+                ]);
+                addLayout('2. 均等2×4 グリッド', 2, 4, [
+                    {colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:2,colEnd:3,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:2,rowStart:2,rowEnd:3},{colStart:2,colEnd:3,rowStart:2,rowEnd:3},
+                    {colStart:1,colEnd:2,rowStart:3,rowEnd:4},{colStart:2,colEnd:3,rowStart:3,rowEnd:4},
+                    {colStart:1,colEnd:2,rowStart:4,rowEnd:5},{colStart:2,colEnd:3,rowStart:4,rowEnd:5}
+                ]);
+            } else if (count === 9) {
+                addLayout('1. 均等3×3 正方形グリッド', 3, 3, [
+                    {colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:2,colEnd:3,rowStart:1,rowEnd:2},{colStart:3,colEnd:4,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:2,rowStart:2,rowEnd:3},{colStart:2,colEnd:3,rowStart:2,rowEnd:3},{colStart:3,colEnd:4,rowStart:2,rowEnd:3},
+                    {colStart:1,colEnd:2,rowStart:3,rowEnd:4},{colStart:2,colEnd:3,rowStart:3,rowEnd:4},{colStart:3,colEnd:4,rowStart:3,rowEnd:4}
+                ]);
+            } else if (count === 10) {
+                addLayout('1. 均等5×2 グリッド', 5, 2, [
+                    {colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:2,colEnd:3,rowStart:1,rowEnd:2},{colStart:3,colEnd:4,rowStart:1,rowEnd:2},{colStart:4,colEnd:5,rowStart:1,rowEnd:2},{colStart:5,colEnd:6,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:2,rowStart:2,rowEnd:3},{colStart:2,colEnd:3,rowStart:2,rowEnd:3},{colStart:3,colEnd:4,rowStart:2,rowEnd:3},{colStart:4,colEnd:5,rowStart:2,rowEnd:3},{colStart:5,colEnd:6,rowStart:2,rowEnd:3}
+                ]);
+                addLayout('2. 均等2×5 グリッド', 2, 5, [
+                    {colStart:1,colEnd:2,rowStart:1,rowEnd:2},{colStart:2,colEnd:3,rowStart:1,rowEnd:2},
+                    {colStart:1,colEnd:2,rowStart:2,rowEnd:3},{colStart:2,colEnd:3,rowStart:2,rowEnd:3},
+                    {colStart:1,colEnd:2,rowStart:3,rowEnd:4},{colStart:2,colEnd:3,rowStart:3,rowEnd:4},
+                    {colStart:1,colEnd:2,rowStart:4,rowEnd:5},{colStart:2,colEnd:3,rowStart:4,rowEnd:5},
+                    {colStart:1,colEnd:2,rowStart:5,rowEnd:6},{colStart:2,colEnd:3,rowStart:5,rowEnd:6}
+                ]);
+            }
+
+            // Always include exact equal Vertical & Horizontal slim line layouts
+            layouts.push(makeVerticalStripes(`${layouts.length + 1}. 縦スリムライン (${count}等分)`));
+            layouts.push(makeHorizontalStripes(`${layouts.length + 1}. 横スリムライン (${count}等分)`));
+
+            // Hero and Editorial Variations
+            layouts.push(makeLeftHero(`${layouts.length + 1}. 左ヒーローメイン`));
+            layouts.push(makeRightHero(`${layouts.length + 1}. 右ヒーローメイン`));
+            layouts.push(makeTopHero(`${layouts.length + 1}. 上ヒーローメイン`));
+            layouts.push(makeBottomHero(`${layouts.length + 1}. 下ヒーローメイン`));
+
+            // Additional 2-column or 3-column split layouts
+            if (count >= 3) {
+                // Top Hero + Bottom Grid
+                const subCount = count - 1;
+                const gridCols = Math.ceil(Math.sqrt(subCount));
+                const gridRows = Math.ceil(subCount / gridCols);
+                const heroSlots = [{ colStart: 1, colEnd: gridCols + 1, rowStart: 1, rowEnd: 2 }];
+                let currSlot = 0;
+                for (let r = 0; r < gridRows; r++) {
+                    for (let c = 0; c < gridCols; c++) {
+                        if (currSlot < subCount) {
+                            heroSlots.push({ colStart: c + 1, colEnd: c + 2, rowStart: r + 2, rowEnd: r + 3 });
+                            currSlot++;
                         }
                     }
                 }
-                return { cols, rows, slots, name: label || `均等配置 (${cols}×${rows})` };
+                layouts.push({ name: `${layouts.length + 1}. トップヒーロー＋マルチグリッド`, cols: gridCols, rows: gridRows + 1, slots: heroSlots });
             }
 
-            // Standard grid configurations for pattern #1
-            if (count === 2) {
-                layouts.push(makeEqualGrid(2, 1, '1. 均等2分割 (左右)'));
-                layouts.push(makeEqualGrid(1, 2, '2. 均等2分割 (上下)'));
-            } else if (count === 3) {
-                layouts.push(makeEqualGrid(3, 1, '1. 均等3列'));
-                layouts.push(makeEqualGrid(1, 3, '2. 均等3行'));
-            } else if (count === 4) {
-                layouts.push(makeEqualGrid(2, 2, '1. 均等2×2 正方形'));
-                layouts.push(makeEqualGrid(4, 1, '2. 均等4列'));
-                layouts.push(makeEqualGrid(1, 4, '3. 均等4行'));
-            } else if (count === 5) {
-                layouts.push({
-                    cols: 6, rows: 2,
-                    name: '1. 均等配置 (上3/下2)',
-                    slots: [
-                        { colStart: 1, colEnd: 3, rowStart: 1, rowEnd: 2 },
-                        { colStart: 3, colEnd: 5, rowStart: 1, rowEnd: 2 },
-                        { colStart: 5, colEnd: 7, rowStart: 1, rowEnd: 2 },
-                        { colStart: 2, colEnd: 4, rowStart: 2, rowEnd: 3 },
-                        { colStart: 4, colEnd: 6, rowStart: 2, rowEnd: 3 }
-                    ]
-                });
-            } else if (count === 6) {
-                layouts.push(makeEqualGrid(3, 2, '1. 均等3×2 グリッド'));
-                layouts.push(makeEqualGrid(2, 3, '2. 均等2×3 グリッド'));
-            } else if (count === 7) {
-                layouts.push({
-                    cols: 12, rows: 2,
-                    name: '1. 均等配置 (上4/下3)',
-                    slots: [
-                        { colStart: 1, colEnd: 4, rowStart: 1, rowEnd: 2 },
-                        { colStart: 4, colEnd: 7, rowStart: 1, rowEnd: 2 },
-                        { colStart: 7, colEnd: 10, rowStart: 1, rowEnd: 2 },
-                        { colStart: 10, colEnd: 13, rowStart: 1, rowEnd: 2 },
-                        { colStart: 2, colEnd: 5, rowStart: 2, rowEnd: 3 },
-                        { colStart: 5, colEnd: 8, rowStart: 2, rowEnd: 3 },
-                        { colStart: 8, colEnd: 11, rowStart: 2, rowEnd: 3 }
-                    ]
-                });
-            } else if (count === 8) {
-                layouts.push(makeEqualGrid(4, 2, '1. 均等4×2 グリッド'));
-                layouts.push(makeEqualGrid(2, 4, '2. 均等2×4 グリッド'));
-            } else if (count === 9) {
-                layouts.push(makeEqualGrid(3, 3, '1. 均等3×3 グリッド'));
-            } else if (count === 10) {
-                layouts.push(makeEqualGrid(5, 2, '1. 均等5×2 グリッド'));
-                layouts.push(makeEqualGrid(2, 5, '2. 均等2×5 グリッド'));
-            }
-
-            // Define rich, distinct grid combinations up to 20 for any photo count
-            const splitRatios = [
-                { left: 7, right: 5 }, { left: 8, right: 4 }, { left: 9, right: 3 }, { left: 10, right: 2 },
-                { left: 5, right: 7 }, { left: 4, right: 8 }, { left: 3, right: 9 }, { left: 2, right: 10 },
-                { top: 7, bottom: 5 }, { top: 8, bottom: 4 }, { top: 9, bottom: 3 }, { top: 10, bottom: 2 },
-                { top: 5, bottom: 7 }, { top: 4, bottom: 8 }, { top: 3, bottom: 9 }, { top: 2, bottom: 10 },
-                { center: true, v: 1 }, { center: true, v: 2 }, { center: true, v: 3 }, { center: true, v: 4 }
-            ];
-
-            let layoutIndex = layouts.length;
-
-            for (let i = 0; i < splitRatios.length && layouts.length < 20; i++) {
-                const ratio = splitRatios[i];
-                const slots = [];
-                let name = `構図 Pattern ${layouts.length + 1}`;
-
-                if (ratio.left !== undefined) {
-                    name = `${layouts.length + 1}. 左右分割 (${ratio.left}:${ratio.right})`;
-                    // Left main hero slot
-                    slots.push({ colStart: 1, colEnd: ratio.left + 1, rowStart: 1, rowEnd: 13 });
-                    // Right split remaining count - 1 slots
-                    const rem = count - 1;
-                    const hStep = Math.floor(12 / rem);
-                    for (let j = 0; j < rem; j++) {
-                        const rStart = j * hStep + 1;
-                        const rEnd = (j === rem - 1) ? 13 : (j + 1) * hStep + 1;
-                        slots.push({ colStart: ratio.left + 1, colEnd: 13, rowStart: rStart, rowEnd: rEnd });
-                    }
-                } else if (ratio.top !== undefined) {
-                    name = `${layouts.length + 1}. 上下分割 (${ratio.top}:${ratio.bottom})`;
-                    // Top main hero slot
-                    slots.push({ colStart: 1, colEnd: 13, rowStart: 1, rowEnd: ratio.top + 1 });
-                    // Bottom split remaining count - 1 slots
-                    const rem = count - 1;
-                    const wStep = Math.floor(12 / rem);
-                    for (let j = 0; j < rem; j++) {
-                        const cStart = j * wStep + 1;
-                        const cEnd = (j === rem - 1) ? 13 : (j + 1) * wStep + 1;
-                        slots.push({ colStart: cStart, colEnd: cEnd, rowStart: ratio.top + 1, rowEnd: 13 });
-                    }
-                } else if (ratio.center) {
-                    name = `${layouts.length + 1}. 誌面風 センターヒーロー (${ratio.v})`;
-                    // Center hero slot
-                    slots.push({ colStart: 4, colEnd: 10, rowStart: 4, rowEnd: 10 });
-                    const rem = count - 1;
-                    const corners = [
-                        { colStart: 1, colEnd: 4, rowStart: 1, rowEnd: 4 },
-                        { colStart: 10, colEnd: 13, rowStart: 1, rowEnd: 4 },
-                        { colStart: 1, colEnd: 4, rowStart: 10, rowEnd: 13 },
-                        { colStart: 10, colEnd: 13, rowStart: 10, rowEnd: 13 },
-                        { colStart: 4, colEnd: 10, rowStart: 1, rowEnd: 4 },
-                        { colStart: 4, colEnd: 10, rowStart: 10, rowEnd: 13 },
-                        { colStart: 1, colEnd: 4, rowStart: 4, rowEnd: 10 },
-                        { colStart: 10, colEnd: 13, rowStart: 4, rowEnd: 10 },
-                        { colStart: 1, colEnd: 7, rowStart: 1, rowEnd: 4 }
-                    ];
-                    for (let j = 0; j < rem; j++) {
-                        const corner = corners[j % corners.length];
-                        slots.push(corner);
-                    }
+            // Fill up to 20 unique layouts cleanly
+            while (layouts.length < 20) {
+                const idx = layouts.length + 1;
+                if (idx % 4 === 0) {
+                    layouts.push(makeLeftHero(`${idx}. 左サイドバー非対称`));
+                } else if (idx % 4 === 1) {
+                    layouts.push(makeTopHero(`${idx}. ヘッダーバナー構図`));
+                } else if (idx % 4 === 2) {
+                    layouts.push(makeRightHero(`${idx}. 右サイドバー非対称`));
+                } else {
+                    layouts.push(makeBottomHero(`${idx}. フッターバナー構図`));
                 }
-
-                layouts.push({ cols: 12, rows: 12, slots: slots.slice(0, count), name });
             }
 
             return layouts.slice(0, 20);
